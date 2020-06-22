@@ -1,0 +1,515 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+  # NATGatewayに紐付けるElasticIPの割り当てID。未指定だとEIPから作る
+  NatIPAllocationId:
+    Type: String
+    Default: ''
+    AllowedPattern: ^($|[a-z]+-[a-z0-9]+$)
+    ConstraintDescription: "Malformed input-Parameter NatIPAllocationId must match pattern ^[a-z]+-[a-z0-9]+$"
+    Description: Enter ElasticIP Allocation ID, like 「eipalloc-001a5b9d6980eed9f」
+
+Conditions:
+  specifyNatIpAID: !Not [!Equals [!Ref NatIPAllocationId, '']]
+  noSpecifyNatIpAID: !Equals [!Ref NatIPAllocationId, '']
+
+
+Mappings:
+  EnvCidrBlock:
+    prod:
+      vpc: '10.30.0.0/16'
+      subnetPublicA: '10.30.0.0/22'
+      subnetPublicC: '10.30.4.0/22'
+      subnetPublicD: '10.30.8.0/22'
+      subnetPrivateA: '10.30.12.0/22'
+      subnetPrivateC: '10.30.16.0/22'
+      subnetPrivateD: '10.30.20.0/22'
+      subnetNatA: '10.30.24.0/22'
+      subnetNatC: '10.30.28.0/22'
+      subnetNatD: '10.30.32.0/22'
+      subnetPublicIgwA: '10.30.36.0/22'
+      subnetPublicIgwC: '10.30.40.0/22'
+      subnetPublicIgwD: '10.30.44.0/22'
+    stg:
+      vpc: '10.31.0.0/16'
+      subnetPublicA: '10.31.0.0/22'
+      subnetPublicC: '10.31.4.0/22'
+      subnetPublicD: '10.31.8.0/22'
+      subnetPrivateA: '10.31.12.0/22'
+      subnetPrivateC: '10.3116.0/22'
+      subnetPrivateD: '10.31.20.0/22'
+      subnetNatA: '10.31.24.0/22'
+      subnetNatC: '10.31.28.0/22'
+      subnetNatD: '10.31.32.0/22'
+      subnetPublicIgwA: '10.31.36.0/22'
+      subnetPublicIgwC: '10.31.40.0/22'
+      subnetPublicIgwD: '10.31.44.0/22'
+    dev:
+      vpc: '10.32.0.0/16'
+      subnetPublicA: '10.32.0.0/22'
+      subnetPublicC: '10.32.4.0/22'
+      subnetPublicD: '10.32.8.0/22'
+      subnetPrivateA: '10.32.12.0/22'
+      subnetPrivateC: '10.32.16.0/22'
+      subnetPrivateD: '10.32.20.0/22'
+      subnetNatA: '10.32.24.0/22'
+      subnetNatC: '10.32.28.0/22'
+      subnetNatD: '10.32.32.0/22'
+      subnetPublicIgwA: '10.32.36.0/22'
+      subnetPublicIgwC: '10.32.40.0/22'
+      subnetPublicIgwD: '10.32.44.0/22'
+
+Resources:
+  #VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, vpc]
+      Tags:
+        - Key: Name
+          Value: !Sub "${ServiceName}-${ENV}-vpc"
+        - Key: Environment
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+
+  #Subnet
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPublicA]
+      AvailabilityZone: 'ap-northeast-1a'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ServiceName}-${ENV}-public-subnet-a"
+        - Key: Environment
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  PublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPublicC]
+      AvailabilityZone: 'ap-northeast-1c'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ServiceName}-${ENV}-public-subnet-c"
+        - Key: Environment
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  PublicSubnetD:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPublicD]
+      AvailabilityZone: 'ap-northeast-1d'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-public-subnet-d
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPrivateA]
+      AvailabilityZone: 'ap-northeast-1a'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-private-subnet-a
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  PrivateSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPrivateC]
+      AvailabilityZone: 'ap-northeast-1c'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-private-subnet-c
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  PrivateSubnetD:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPrivateD]
+      AvailabilityZone: 'ap-northeast-1d'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-private-subnet-d
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  NatSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetNatA]
+      AvailabilityZone: 'ap-northeast-1a'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-subnet-a
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  NatSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetNatC]
+      AvailabilityZone: 'ap-northeast-1c'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-subnet-c
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  NatSubnetD:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetNatD]
+      AvailabilityZone: 'ap-northeast-1d'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-subnet-d
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  PublicIgwSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPublicIgwA]
+      AvailabilityZone: 'ap-northeast-1a'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-public-igw-subnet-a
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  PublicIgwSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPublicIgwC]
+      AvailabilityZone: 'ap-northeast-1c'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-public-igw-subnet-c
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+  PublicIgwSubnetD:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !FindInMap [EnvCidrBlock, !Ref  ENV, subnetPublicIgwD]
+      AvailabilityZone: 'ap-northeast-1d'
+      MapPublicIpOnLaunch: 'false'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-public-igw-subnet-d
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+
+  # RouteTable
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-route-table-public
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-private- route-table
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+  NatRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-route-table
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+  PublicIgwRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-igw-route-table
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  #InternetGateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-igw
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+  # Attach Gateway
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn: InternetGateway
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # ElasticIP For NATGateway
+  NatEIP:
+    Type: AWS::EC2::EIP
+    Condition: noSpecifyNatIpAID
+    Properties:
+      Domain: vpc
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-eip
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+  # NatGateway
+  NATGateway:
+    Type: "AWS::EC2::NatGateway"
+    Properties:
+      AllocationId: !If [specifyNatIpAID, !Ref NatIPAllocationId, !GetAtt NatEIP.AllocationId]
+      SubnetId: !Ref PublicIgwSubnetA
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-gw
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # Attach public route
+  AttachPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  AttachPublicIgwRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicIgwRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  AttachNatRoute:
+    Type: AWS::EC2::Route
+    DependsOn: NATGateway
+    Properties:
+      RouteTableId: !Ref NatRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+
+  # DynamoDB VPC Endpoint
+  VPCEndPointForDynamoDB:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument: !Sub '{
+        "Version":"2012-10-17",
+        "Statement":[{
+          "Effect":"Allow",
+          "Principal": "*",
+          "Action": "*",
+          "Resource": "arn:aws:dynamodb:*:*:table/${ENV}_*"
+        }]
+      }'
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+        - !Ref NatRouteTable
+      VpcId: !Ref VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
+
+  # Attach subnet to route table
+  AttachPublicSubnetAToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+  AttachPublicSubnetCToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetC
+  AttachPublicSubnetDToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetD
+
+  AttachPrivateSubnetAToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetA
+  AttachPrivateSubnetCToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetC
+  AttachPrivateSubnetDToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetD
+
+  AttachNatSubnetAToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref NatRouteTable
+      SubnetId: !Ref NatSubnetA
+  AttachNatSubnetCToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref NatRouteTable
+      SubnetId: !Ref NatSubnetC
+  AttachNatSubnetDToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref NatRouteTable
+      SubnetId: !Ref NatSubnetD
+
+  AttachPublicIgwSubnetAToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicIgwRouteTable
+      SubnetId: !Ref PublicIgwSubnetA
+  AttachPublicIgwSubnetCToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicIgwRouteTable
+      SubnetId: !Ref PublicIgwSubnetC
+  AttachPublicIgwSubnetDToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicIgwRouteTable
+      SubnetId: !Ref PublicIgwSubnetD
+
+
+Outputs:
+  VpcId:
+    Description: Vpc id
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-VpcId
+
+  PublicSubnetAId:
+    Value: !Ref PublicSubnetA
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-public-subnet-a
+  PublicSubnetCId:
+    Value: !Ref PublicSubnetC
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-public-subnet-c
+  PublicSubnetDId:
+    Value: !Ref PublicSubnetD
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-public-subnet-d
+
+  PrivateSubnetAId:
+    Value: !Ref PrivateSubnetA
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-private-subnet-a
+  PrivateSubnetCId:
+    Value: !Ref PrivateSubnetC
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-private-subnet-c
+  PrivateSubnetDId:
+    Value: !Ref PrivateSubnetD
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-private-subnet-d
+
+  NatSubnetAId:
+    Value: !Ref NatSubnetA
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-nat-subnet-a
+  NatSubnetCId:
+    Value: !Ref NatSubnetC
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-nat-subnet-c
+  NatSubnetDId:
+    Value: !Ref NatSubnetD
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-nat-subnet-d
+
+  PublicIgwSubnetAId:
+    Value: !Ref PublicIgwSubnetA
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-public-igw-subnet-a
+  PublicIgwSubnetCId:
+    Value: !Ref PublicIgwSubnetC
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-public-igw-subnet-c
+  PublicIgwSubnetDId:
+    Value: !Ref PublicIgwSubnetD
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-public-igw-subnet-d

@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+Resources:
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-task-execution-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskRoleForDynamoDB:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-dynamodb-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+  ECSServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-service-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole'
+
+Outputs:
+  ECSTaskExecutionRoleARN:
+    Value: !GetAtt  ECSTaskExecutionRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
+  ECSTaskRoleForDynamoDBARN:
+    Value: !GetAtt  ECSTaskRoleForDynamoDB.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-task-dynamodb-role-arn
+  ECSServiceRoleARN:
+    Value: !GetAtt  ECSServiceRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-service-role
+
+

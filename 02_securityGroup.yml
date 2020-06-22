@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+Resources:
+  # ALB
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ServiceName}-${ENV}-alb-sg
+      GroupDescription: !Sub ${ServiceName}-${ENV}-alb-sg
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-alb-sg
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # Internal Network
+  CommonSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DependsOn: ALBSecurityGroup
+    Properties:
+      GroupName: !Sub ${ServiceName}-${ENV}-common-sg
+      GroupDescription: !Sub ${ServiceName}-${ENV}-common-sq
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-common-sq
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+  IngressCommonToCommonSecurityGroup:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: CommonSecurityGroup
+    Properties:
+      GroupId: !GetAtt CommonSecurityGroup.GroupId
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref CommonSecurityGroup
+
+  # Allow access IP from PLAY, inc office
+  PlayOfficeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ServiceName}-${ENV}-play-office-sg
+      GroupDescription: !Sub ${ServiceName}-${ENV}-play-office-sg
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          CidrIp: 113.43.239.66/32
+          Description: Tokyo Office
+        - IpProtocol: -1
+          CidrIp: 122.221.102.154/32
+          Description: Fukuoka Office
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-play-office-sg
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+Outputs:
+  ALBSecurityGroupId:
+    Value: !GetAtt ALBSecurityGroup.GroupId
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-alb-sg-id
+  CommonSecurityGroup:
+    Value: !GetAtt ALBSecurityGroup.GroupId
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-common-sg-id
+  PlayOfficeSecurityGroup:
+    Value: !GetAtt ALBSecurityGroup.GroupId
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-play-office-sg-id
