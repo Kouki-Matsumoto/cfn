@@ -454,7 +454,33 @@ Resources:
       RouteTableId: !Ref PublicIgwRouteTable
       SubnetId: !Ref PublicIgwSubnetD
 
-
+  # ElastiCache Subnet
+  ElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
+      Description: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetC
+        - !Ref PrivateSubnetD
+    
+  RDSSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupName: !Sub ${ServiceName}-${ENV}-rds-subnet-group
+      DBSubnetGroupDescription: !Sub ${ServiceName}-${ENV}-rds-subnet-group
+      SubnetIds:
+      - !Ref PrivateSubnetA
+      - !Ref PrivateSubnetC
+      - !Ref PrivateSubnetD
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-gw
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
 Outputs:
   VpcId:
     Description: Vpc id
@@ -513,3 +539,13 @@ Outputs:
     Value: !Ref PublicIgwSubnetD
     Export:
       Name: !Sub ${ServiceName}-${ENV}-public-igw-subnet-d
+
+  ElastiCacheSubnetGroup:
+    Value: !Ref ElastiCacheSubnetGroup
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
+      
+  RDSSubnetGroup:
+    Value: !Ref RDSSubnetGroup
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-rds-subnet-group
