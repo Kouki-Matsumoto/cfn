@@ -32,6 +32,14 @@ Parameters:
     MaxValue: 65565
     ConstraintDescription: Malformed input-Parameter ContainerPort must match 1 ~ 65565
     Description: Enter number of container port, like 「8080」
+  # ALBポート
+  ALBListenPort:
+    Type: Number
+    MinValue: 0
+    MaxValue: 65565
+    Default: 0
+    ConstraintDescription: Malformed input-Parameter ALBListenPort must match 1 ~ 65565
+    Description: Enter number of ALB Listen Port, like 「3000」
   # SSL ACM ARN
   SSLArn:
     Type: String
@@ -40,7 +48,9 @@ Parameters:
 Conditions:
   isALBSchemaInternet: !Equals [!Ref ALBSchemaType, 'internet-facing']
   isALBSchemaInternal: !Not [!Equals [!Ref ALBSchemaType, 'internet-facing']]
+  hasALBListenPort: !Not [!Equals [!Ref ALBListenPort, 0]]
   hasSSL: !Not [!Equals [!Ref SSLArn, '']]
+  isProd: !Equals [!Ref ENV, prod]
 
 Resources:
   # Target Group
@@ -135,9 +145,16 @@ Resources:
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      Port: !If [hasSSL, 443, 80]
-      Protocol: !If [hasSSL, HTTPS ,HTTP]
+      Port: !If [hasALBListenPort, !Ref ALBListenPort , !If [hasSSL, 443, 80]]
+      Protocol: !If [hasSSL, HTTPS, HTTP]
       LoadBalancerArn: !If [isALBSchemaInternet, !Ref PublicALB, !Ref InternalALB]
+      Certificates:
+        !If
+        - hasSSL
+        - 
+          - CertificateArn: !Ref SSLArn
+        - !Ref "AWS::NoValue"
+      SslPolicy: !If [hasSSL, "ELBSecurityPolicy-2016-08", !Ref "AWS::NoValue"]
       DefaultActions:
       - Type: fixed-response
         FixedResponseConfig:
@@ -168,7 +185,7 @@ Resources:
   ECR:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub ${ServiceName}-${ENV}
+      RepositoryName: !Sub ${SystemName}-${ENV}
       Tags:
       - Key: Name
         Value: !Sub ${SystemName}-${ENV}-ecr
@@ -198,8 +215,8 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       NetworkMode: awsvpc
-      Cpu: 1024
-      Memory: 2048
+      Cpu: !If [isProd, 2048, 1024]
+      Memory: !If [isProd, 4096, 2048]
       ExecutionRoleArn:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
       TaskRoleArn:
@@ -224,8 +241,8 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       NetworkMode: awsvpc
-      Cpu: 1024
-      Memory: 2048
+      Cpu: !If [isProd, 2048, 1024]
+      Memory: !If [isProd, 4096, 2048]
       ExecutionRoleArn:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
       TaskRoleArn:
@@ -246,7 +263,7 @@ Resources:
 
   ECSServiceBlue:
     Type: AWS::ECS::Service
-    DependsOn: ALBListener
+    DependsOn: ALBBlueGreenListener
     Properties:
       ServiceName: !Sub ${SystemName}-${ENV}-blue
       Cluster: !Ref ECSCluster
@@ -269,6 +286,7 @@ Resources:
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
   ECSServiceGreen:
     Type: AWS::ECS::Service
+    DependsOn: ALBBlueGreenListener
     Properties:
       ServiceName: !Sub ${SystemName}-${ENV}-green
       Cluster: !Ref ECSCluster
@@ -289,6 +307,24 @@ Resources:
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-d
           SecurityGroups:
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+
+Outputs:
+  ECRepository:
+    Description: EC Repository Path
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR} 
+  ECRBlue:
+    Description: EC Repository Path
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-blue
+  ECRGreen:
+    Description: EC Repository Path
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-green
+  ALBListener:
+    Description: ALB Listener ARN
+    Value: !Ref ALBListener
+  SystemName:
+    Description: Sub System Name
+    Value: !Ref SystemName
+    
 
 
 
