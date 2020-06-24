@@ -45,6 +45,23 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+
+  ECSTaskRoleForS3:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-s3-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
   ECSServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -58,19 +75,6 @@ Resources:
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole'
-  
-  ECRPushRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub ${ServiceName}-${ENV}-ec2-ecr-push-role
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: 'sts:AssumeRole'
-      ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/service-role/'
-
 Outputs:
   ECSTaskExecutionRoleARN:
     Value: !GetAtt  ECSTaskExecutionRole.Arn
@@ -80,6 +84,10 @@ Outputs:
     Value: !GetAtt  ECSTaskRoleForDynamoDB.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-task-dynamodb-role-arn
+  ECSTaskRoleForS3:
+    Value: !GetAtt  ECSTaskRoleForS3.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-task-s3-role-arn
   ECSServiceRoleARN:
     Value: !GetAtt  ECSServiceRole.Arn
     Export:

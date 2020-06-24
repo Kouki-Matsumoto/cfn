@@ -45,6 +45,10 @@ Parameters:
     Type: String
     Default: ''
     Description: Specify ACM ARN
+  TaskRoleOutputName:
+    Type: String
+    Default: 'ecs-task-dynamodb-role-arn'
+    Description: Output Name of ECS Task Role. Default (ecs-task-dynamodb-role-arn)
 Conditions:
   isALBSchemaInternet: !Equals [!Ref ALBSchemaType, 'internet-facing']
   isALBSchemaInternal: !Not [!Equals [!Ref ALBSchemaType, 'internet-facing']]
@@ -220,7 +224,7 @@ Resources:
       ExecutionRoleArn:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
       TaskRoleArn:
-        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-dynamodb-role-arn
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
       ContainerDefinitions:
         - Name: !Sub ${SystemName}-${ENV}-blue
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue
