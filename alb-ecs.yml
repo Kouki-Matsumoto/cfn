@@ -184,7 +184,22 @@ Resources:
             Weight: 1
           - TargetGroupArn: !Ref ALBTargetGreen
             Weight: 0
-
+  ALBNoSSLRedirectListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: hasSSL
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      LoadBalancerArn: !If [isALBSchemaInternet, !Ref PublicALB, !Ref InternalALB]
+      DefaultActions:
+      - Type: redirect
+        RedirectConfig:
+          Host: '#{host}'
+          Path: '/#{path}'
+          Port: 443
+          Protocol: HTTPS
+          Query: '#{query}'
+          StatusCode: HTTP_301
   # Repository
   ECR:
     Type: AWS::ECR::Repository
@@ -231,6 +246,13 @@ Resources:
           PortMappings:
           - ContainerPort: !Ref ContainerPort
             HostPort: !Ref ContainerPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}-blue"
+              awslogs-region: ap-northeast-1
+              awslogs-stream-prefix: ecs
       Tags:
       - Key: Name
         Value: !Sub ${SystemName}-${ENV}-blue-task-definition
@@ -257,6 +279,13 @@ Resources:
           PortMappings:
           - ContainerPort: !Ref ContainerPort
             HostPort: !Ref ContainerPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}-green"
+              awslogs-region: ap-northeast-1
+              awslogs-stream-prefix: ecs
       Tags:
       - Key: Name
         Value: !Sub ${SystemName}-${ENV}-green-task-definition
@@ -267,7 +296,9 @@ Resources:
 
   ECSServiceBlue:
     Type: AWS::ECS::Service
-    DependsOn: ALBBlueGreenListener
+    DependsOn: 
+      - ALBBlueGreenListener
+      - ECSTaskDefinitionBlue
     Properties:
       ServiceName: !Sub ${SystemName}-${ENV}-blue
       Cluster: !Ref ECSCluster
@@ -290,7 +321,9 @@ Resources:
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
   ECSServiceGreen:
     Type: AWS::ECS::Service
-    DependsOn: ALBBlueGreenListener
+    DependsOn: 
+      - ALBBlueGreenListener
+      - ECSTaskDefinitionGreen
     Properties:
       ServiceName: !Sub ${SystemName}-${ENV}-green
       Cluster: !Ref ECSCluster
@@ -312,6 +345,16 @@ Resources:
           SecurityGroups:
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
 
+#  ServiceScaleOutGreenAlarm: Type: AWS::AutoScalingPlans::ScalingPlan
+#    Properties:
+#      ApplicationSource: 
+#        CloudFormationStackARN:
+#
+#      ScalingInstructions: 
+#        - fff
+
+
+    
 Outputs:
   ECRepository:
     Description: EC Repository Path

@@ -29,6 +29,7 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
 
   ECSTaskRoleForDynamoDB:
     Type: AWS::IAM::Role

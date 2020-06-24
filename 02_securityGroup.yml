@@ -106,10 +106,10 @@ Outputs:
     Export:
       Name: !Sub ${ServiceName}-${ENV}-alb-sg-id
   CommonSecurityGroup:
-    Value: !GetAtt ALBSecurityGroup.GroupId
+    Value: !GetAtt CommonSecurityGroup.GroupId
     Export:
       Name: !Sub ${ServiceName}-${ENV}-common-sg-id
   PlayOfficeSecurityGroup:
-    Value: !GetAtt ALBSecurityGroup.GroupId
+    Value: !GetAtt PlayOfficeSecurityGroup.GroupId
     Export:
       Name: !Sub ${ServiceName}-${ENV}-play-office-sg-id
