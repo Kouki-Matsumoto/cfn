@@ -62,6 +62,23 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+  
+  ECSTaskRoleForMercury:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-for-mercury-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
 
   ECSServiceRole:
     Type: AWS::IAM::Role
@@ -76,6 +93,20 @@ Resources:
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole'
+
+  EC2DeployServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ec2-deploy-server-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/ElasticLoadBalancingReadOnly'
 Outputs:
   ECSTaskExecutionRoleARN:
     Value: !GetAtt  ECSTaskExecutionRole.Arn
@@ -89,6 +120,10 @@ Outputs:
     Value: !GetAtt  ECSTaskRoleForS3.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-task-s3-role-arn
+  ECSTaskRoleForMercury:
+    Value: !GetAtt  ECSTaskRoleForS3.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-mercury-role
   ECSServiceRoleARN:
     Value: !GetAtt  ECSServiceRole.Arn
     Export:

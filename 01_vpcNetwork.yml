@@ -380,7 +380,7 @@ Resources:
           "Effect":"Allow",
           "Principal": "*",
           "Action": "*",
-          "Resource": "arn:aws:dynamodb:*:*:table/${ENV}_*"
+          "Resource": "*"
         }]
       }'
       RouteTableIds:
