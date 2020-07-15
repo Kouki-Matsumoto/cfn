@@ -391,6 +391,24 @@ Resources:
       VpcId: !Ref VPC
       ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
 
+  VPCEndPointForS3:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument: !Sub '{
+        "Version":"2012-10-17",
+        "Statement":[{
+          "Effect":"Allow",
+          "Principal": "*",
+          "Action": "*",
+          "Resource": "*"
+        }]
+      }'
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+        - !Ref NatRouteTable
+      VpcId: !Ref VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+
   # Attach subnet to route table
   AttachPublicSubnetAToRouteTable:
     Type: AWS::EC2::SubnetRouteTableAssociation
