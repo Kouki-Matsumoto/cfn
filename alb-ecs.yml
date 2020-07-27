@@ -218,6 +218,9 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub ${SystemName}-${ENV}
+      ClusterSettings:
+        - Name: containerInsights
+          Value: !If [isProd, enabled, disabled]
       Tags:
       - Key: Name
         Value: !Sub ${SystemName}-${ENV}-ecs
@@ -234,8 +237,8 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       NetworkMode: awsvpc
-      Cpu: !If [isProd, 2048, 1024]
-      Memory: !If [isProd, 4096, 2048]
+      Cpu: !If [isProd, 1024, 512]
+      Memory: !If [isProd, 2048, 1024]
       ExecutionRoleArn:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
       TaskRoleArn:
@@ -250,7 +253,7 @@ Resources:
             LogDriver: awslogs
             Options:
               awslogs-create-group: true
-              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}-blue"
+              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}"
               awslogs-region: ap-northeast-1
               awslogs-stream-prefix: ecs
       Tags:
@@ -267,12 +270,12 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       NetworkMode: awsvpc
-      Cpu: !If [isProd, 2048, 1024]
-      Memory: !If [isProd, 4096, 2048]
+      Cpu: !If [isProd, 1024, 512]
+      Memory: !If [isProd, 2048, 1024]
       ExecutionRoleArn:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
       TaskRoleArn:
-        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-dynamodb-role-arn
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
       ContainerDefinitions:
         - Name: !Sub ${SystemName}-${ENV}-green
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green
@@ -283,7 +286,7 @@ Resources:
             LogDriver: awslogs
             Options:
               awslogs-create-group: true
-              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}-green"
+              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}"
               awslogs-region: ap-northeast-1
               awslogs-stream-prefix: ecs
       Tags:
