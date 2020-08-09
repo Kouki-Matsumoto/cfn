@@ -48,7 +48,7 @@ Mappings:
       subnetPublicC: '10.34.4.0/22'
       subnetPublicD: '10.34.8.0/22'
       subnetPrivateA: '10.34.12.0/22'
-      subnetPrivateC: '10.3416.0/22'
+      subnetPrivateC: '10.34.16.0/22'
       subnetPrivateD: '10.34.20.0/22'
       subnetNatA: '10.34.24.0/22'
       subnetNatC: '10.34.28.0/22'
@@ -484,10 +484,10 @@ Resources:
         - !Ref PrivateSubnetA
         - !Ref PrivateSubnetC
         - !Ref PrivateSubnetD
-    
+
   RDSSubnetGroup:
     Type: "AWS::RDS::DBSubnetGroup"
-    Properties: 
+    Properties:
       DBSubnetGroupName: !Sub ${ServiceName}-${ENV}-rds-subnet-group
       DBSubnetGroupDescription: !Sub ${ServiceName}-${ENV}-rds-subnet-group
       SubnetIds:
@@ -564,7 +564,7 @@ Outputs:
     Value: !Ref ElastiCacheSubnetGroup
     Export:
       Name: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
-      
+
   RDSSubnetGroup:
     Value: !Ref RDSSubnetGroup
     Export:
