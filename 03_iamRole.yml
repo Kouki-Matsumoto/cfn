@@ -62,7 +62,7 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
-  
+
   ECSTaskRoleForMercury:
     Type: AWS::IAM::Role
     Properties:
@@ -121,7 +121,7 @@ Outputs:
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-task-s3-role-arn
   ECSTaskRoleForMercury:
-    Value: !GetAtt  ECSTaskRoleForS3.Arn
+    Value: !GetAtt  ECSTaskRoleForMercury.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-mercury-role
   ECSServiceRoleARN:

@@ -46,7 +46,7 @@ Resources:
     DependsOn: ALBSecurityGroup
     Properties:
       GroupName: !Sub ${ServiceName}-${ENV}-common-sg
-      GroupDescription: !Sub ${ServiceName}-${ENV}-common-sq
+      GroupDescription: !Sub ${ServiceName}-${ENV}-common-sg
       VpcId:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
       SecurityGroupIngress:
@@ -64,7 +64,7 @@ Resources:
           SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
       Tags:
       - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-common-sq
+        Value: !Sub ${ServiceName}-${ENV}-common-sg
       - Key: ENV
         Value: !Ref ENV
       - Key: Project
