@@ -22,9 +22,10 @@ Parameters:
   # ALB Type
   ALBSchemaType:
     Type: String
-    AllowedValues: ['internet-facing', 'internal']
-    ConstraintDescription: Enter internet-facing, or internal."
-    Description: Enter ALB Type internet-facing or internal
+    AllowedValues: ['both', 'internet-facing', 'internal']
+    Default: 'both'
+    ConstraintDescription: Enter both, internet-facing, or internal."
+    Description: Select one ALB Type both(internet-facing & internal), internet-facing or internal
   # コンテナポート
   ContainerPort:
     Type: Number
@@ -32,34 +33,32 @@ Parameters:
     MaxValue: 65565
     ConstraintDescription: Malformed input-Parameter ContainerPort must match 1 ~ 65565
     Description: Enter number of container port, like 「8080」
-  # ALBポート
-  ALBListenPort:
-    Type: Number
-    MinValue: 0
-    MaxValue: 65565
-    Default: 0
-    ConstraintDescription: Malformed input-Parameter ALBListenPort must match 1 ~ 65565
-    Description: Enter number of ALB Listen Port, like 「3000」
   # SSL ACM ARN
   SSLArn:
     Type: String
-    Default: ''
+    Default: 'arn:aws:acm:ap-northeast-1:845168618390:certificate/976753a5-264e-4e99-94d0-54f7760214ea'
     Description: Specify ACM ARN
+
   TaskRoleOutputName:
     Type: String
     Default: 'ecs-task-dynamodb-role-arn'
     Description: Output Name of ECS Task Role. Default (ecs-task-dynamodb-role-arn)
+
 Conditions:
-  isALBSchemaInternet: !Equals [!Ref ALBSchemaType, 'internet-facing']
-  isALBSchemaInternal: !Not [!Equals [!Ref ALBSchemaType, 'internet-facing']]
-  hasALBListenPort: !Not [!Equals [!Ref ALBListenPort, 0]]
-  hasSSL: !Not [!Equals [!Ref SSLArn, '']]
+  isALBSchemaBoth: !Equals [!Ref ALBSchemaType, 'both']
+  hasALBSchemaInternet: !Or
+    - !Equals [!Ref ALBSchemaType, 'internet-facing']
+    - Condition: isALBSchemaBoth
+  hasALBSchemaInternal: !Or
+    - !Not [!Equals [!Ref ALBSchemaType, 'internet-facing']]
+    - Condition: isALBSchemaBoth
   isProd: !Equals [!Ref ENV, prod]
 
 Resources:
-  # Target Group
+  # Target Group (Public)
   ALBTargetBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: hasALBSchemaInternet
     Properties:
       Name: !Sub ${SystemName}-${ENV}-blue
       VpcId:
@@ -81,6 +80,7 @@ Resources:
         Value: !Ref ServiceName
   ALBTargetGreen:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: hasALBSchemaInternet
     Properties:
       Name: !Sub ${SystemName}-${ENV}-green
       VpcId:
@@ -101,15 +101,69 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
-  # PublicALB or InternalALB
+  # Target Group (Internal)
+  InternalALBTargetBlue:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: hasALBSchemaInternal
+    Properties:
+      Name: !Sub ${SystemName}-${ENV}-i-blue
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      UnhealthyThresholdCount: '2'
+      HealthCheckPath: "/health_check"
+      HealthCheckPort: traffic-port
+      TargetType: ip
+      Matcher:
+        HttpCode: '200'
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-i-blue
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+  InternalALBTargetGreen:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: hasALBSchemaInternal
+    Properties:
+      Name: !Sub ${SystemName}-${ENV}-i-green
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      UnhealthyThresholdCount: '2'
+      HealthCheckPath: "/health_check"
+      HealthCheckPort: traffic-port
+      TargetType: ip
+      Matcher:
+        HttpCode: '200'
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-i-green
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # PublicALB
   PublicALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Condition: isALBSchemaInternet
+    Condition: hasALBSchemaInternet
     Properties:
       Name: !Sub ${SystemName}-${ENV}-alb
       Type: application
       IpAddressType: ipv4
       Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: true
+        - Key: access_logs.s3.bucket
+          Value:
+            Fn::ImportValue: !Sub '${ServiceName}-${ENV}-alb-logs-bucket'
+        - Key: access_logs.s3.prefix
+          Value: !Sub '${SystemName}/public'
       SecurityGroups:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-alb-sg-id
       Subnets:
@@ -123,14 +177,24 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+
+  # InternalALB
   InternalALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Condition: isALBSchemaInternal
+    Condition: hasALBSchemaInternal
     Properties:
-      Name: !Sub ${SystemName}-${ENV}-alb
+      Name: !Sub ${SystemName}-${ENV}-i-alb
       Type: application
       IpAddressType: ipv4
       Scheme: internal
+      LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: true
+        - Key: access_logs.s3.bucket
+          Value:
+            Fn::ImportValue: !Sub '${ServiceName}-${ENV}-alb-logs-bucket'
+        - Key: access_logs.s3.prefix
+          Value: !Sub '${SystemName}/internal'
       SecurityGroups:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
       Subnets:
@@ -139,34 +203,33 @@ Resources:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-private-subnet-d
       Tags:
       - Key: Name
-        Value: !Sub ${SystemName}-${ENV}-alb
+        Value: !Sub ${SystemName}-${ENV}-i-alb
       - Key: ENV
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
 
-  # ALB Listener
+  # ALB Listener (Public)
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: hasALBSchemaInternet
     Properties:
-      Port: !If [hasALBListenPort, !Ref ALBListenPort , !If [hasSSL, 443, 80]]
-      Protocol: !If [hasSSL, HTTPS, HTTP]
-      LoadBalancerArn: !If [isALBSchemaInternet, !Ref PublicALB, !Ref InternalALB]
+      Port: 443
+      Protocol: HTTPS
+      LoadBalancerArn: !Ref PublicALB
       Certificates:
-        !If
-        - hasSSL
-        - 
-          - CertificateArn: !Ref SSLArn
+        - CertificateArn: !Ref SSLArn
         - !Ref "AWS::NoValue"
-      SslPolicy: !If [hasSSL, "ELBSecurityPolicy-2016-08", !Ref "AWS::NoValue"]
+      SslPolicy: "ELBSecurityPolicy-2016-08"
       DefaultActions:
       - Type: fixed-response
         FixedResponseConfig:
-          ContentType: text/html
-          StatusCode: 200
-          MessageBody: ''
+          ContentType: text/plain
+          StatusCode: 404
+          MessageBody: 'NotFound'
   ALBBlueGreenListener:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: hasALBSchemaInternet
     DependsOn: ALBListener
     Properties:
       ListenerArn: !Ref ALBListener
@@ -186,11 +249,11 @@ Resources:
             Weight: 0
   ALBNoSSLRedirectListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
-    Condition: hasSSL
+    Condition: hasALBSchemaInternet
     Properties:
       Port: 80
       Protocol: HTTP
-      LoadBalancerArn: !If [isALBSchemaInternet, !Ref PublicALB, !Ref InternalALB]
+      LoadBalancerArn: !Ref PublicALB
       DefaultActions:
       - Type: redirect
         RedirectConfig:
@@ -200,6 +263,42 @@ Resources:
           Protocol: HTTPS
           Query: '#{query}'
           StatusCode: HTTP_301
+
+  # ALB Listener (Internal)
+  InternalALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: hasALBSchemaInternal
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      LoadBalancerArn: !Ref InternalALB
+      DefaultActions:
+      - Type: fixed-response
+        FixedResponseConfig:
+          ContentType: text/plain
+          StatusCode: 404
+          MessageBody: 'NotFound'
+  InternalALBBlueGreenListener:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: hasALBSchemaInternal
+    DependsOn: InternalALBListener
+    Properties:
+      ListenerArn: !Ref InternalALBListener
+      Priority: 1
+      Conditions:
+      - Field: path-pattern
+        PathPatternConfig:
+          Values:
+          - '/*'
+      Actions:
+      - Type: forward
+        ForwardConfig:
+          TargetGroups:
+          - TargetGroupArn: !Ref InternalALBTargetBlue
+            Weight: 1
+          - TargetGroupArn: !Ref InternalALBTargetGreen
+            Weight: 0
+
   # Repository
   ECR:
     Type: AWS::ECR::Repository
@@ -229,9 +328,10 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
-  # ECS Task Definitions
+  # ECS Task Definitions (Public)
   ECSTaskDefinitionBlue:
     Type: AWS::ECS::TaskDefinition
+    Condition: hasALBSchemaInternet
     Properties:
       Family: !Sub ${SystemName}-${ENV}-blue
       RequiresCompatibilities:
@@ -265,6 +365,7 @@ Resources:
         Value: !Ref ServiceName
   ECSTaskDefinitionGreen:
     Type: AWS::ECS::TaskDefinition
+    Condition: hasALBSchemaInternet
     Properties:
       Family: !Sub ${SystemName}-${ENV}-green
       RequiresCompatibilities:
@@ -297,9 +398,81 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
+  # ECS Task Definitions (Internal)
+  ECSInternalTaskDefinitionBlue:
+    Type: AWS::ECS::TaskDefinition
+    Condition: hasALBSchemaInternal
+    Properties:
+      Family: !Sub ${SystemName}-${ENV}-i-blue
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: !If [isProd, 1024, 512]
+      Memory: !If [isProd, 2048, 1024]
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
+      TaskRoleArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
+      ContainerDefinitions:
+        - Name: !Sub ${SystemName}-${ENV}-i-blue
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue
+          PortMappings:
+          - ContainerPort: !Ref ContainerPort
+            HostPort: !Ref ContainerPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}-i"
+              awslogs-region: ap-northeast-1
+              awslogs-stream-prefix: ecs
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-i-blue-task-definition
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+  ECSInternalTaskDefinitionGreen:
+    Type: AWS::ECS::TaskDefinition
+    Condition: hasALBSchemaInternal
+    Properties:
+      Family: !Sub ${SystemName}-${ENV}-i-green
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: !If [isProd, 1024, 512]
+      Memory: !If [isProd, 2048, 1024]
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
+      TaskRoleArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
+      ContainerDefinitions:
+        - Name: !Sub ${SystemName}-${ENV}-i-green
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green
+          PortMappings:
+          - ContainerPort: !Ref ContainerPort
+            HostPort: !Ref ContainerPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}-i"
+              awslogs-region: ap-northeast-1
+              awslogs-stream-prefix: ecs
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-green-task-definition
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # ECS Service (Public)
   ECSServiceBlue:
     Type: AWS::ECS::Service
-    DependsOn: 
+    Condition: hasALBSchemaInternet
+    DependsOn:
       - ALBBlueGreenListener
       - ECSTaskDefinitionBlue
     Properties:
@@ -324,7 +497,8 @@ Resources:
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
   ECSServiceGreen:
     Type: AWS::ECS::Service
-    DependsOn: 
+    Condition: hasALBSchemaInternet
+    DependsOn:
       - ALBBlueGreenListener
       - ECSTaskDefinitionGreen
     Properties:
@@ -348,20 +522,196 @@ Resources:
           SecurityGroups:
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
 
+  # ECS Service (Internal)
+  ECSInternalServiceBlue:
+    Type: AWS::ECS::Service
+    Condition: hasALBSchemaInternal
+    DependsOn:
+      - InternalALBBlueGreenListener
+      - ECSInternalTaskDefinitionBlue
+    Properties:
+      ServiceName: !Sub ${SystemName}-${ENV}-i-blue
+      Cluster: !Ref ECSCluster
+      DesiredCount: 0
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Sub ${SystemName}-${ENV}-i-blue
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref InternalALBTargetBlue
+      TaskDefinition: !Ref ECSInternalTaskDefinitionBlue
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-a
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-c
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-d
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+  ECSInternalServiceGreen:
+    Type: AWS::ECS::Service
+    Condition: hasALBSchemaInternal
+    DependsOn:
+      - InternalALBBlueGreenListener
+      - ECSInternalTaskDefinitionGreen
+    Properties:
+      ServiceName: !Sub ${SystemName}-${ENV}-i-green
+      Cluster: !Ref ECSCluster
+      DesiredCount: 0
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Sub ${SystemName}-${ENV}-i-green
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref InternalALBTargetGreen
+      TaskDefinition: !Ref ECSInternalTaskDefinitionGreen
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-a
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-c
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-d
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+
+  # ECS Service ScalableTarget (Public)
+  AutoScalingTargetBlue:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: hasALBSchemaInternet
+    Properties:
+      MinCapacity: 0
+      MaxCapacity: 10
+      ResourceId: !Sub
+        - 'service/${Cluster}/${Service}'
+        - Cluster: !Ref ECSCluster
+          Service: !GetAtt 'ECSServiceBlue.Name'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !Sub
+        arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+
+  AutoScalingTargetGreen:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: hasALBSchemaInternet
+    Properties:
+      MinCapacity: 0
+      MaxCapacity: 10
+      ResourceId: !Sub
+        - 'service/${Cluster}/${Service}'
+        - Cluster: !Ref ECSCluster
+          Service: !GetAtt 'ECSServiceGreen.Name'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !Sub
+        arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+
+  # ECS Service ScalableTarget (Internal)
+  InternalAutoScalingTargetBlue:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: hasALBSchemaInternal
+    Properties:
+      MinCapacity: 0
+      MaxCapacity: 10
+      ResourceId: !Sub
+        - 'service/${Cluster}/${Service}'
+        - Cluster: !Ref ECSCluster
+          Service: !GetAtt 'ECSInternalServiceBlue.Name'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !Sub
+        arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+
+  InternalAutoScalingTargetGreen:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: hasALBSchemaInternal
+    Properties:
+      MinCapacity: 0
+      MaxCapacity: 10
+      ResourceId: !Sub
+        - 'service/${Cluster}/${Service}'
+        - Cluster: !Ref ECSCluster
+          Service: !GetAtt 'ECSInternalServiceGreen.Name'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !Sub
+        arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+
+  # ECS Service ScalablePolicy (Public)
+  AutoScallingPolicyBlue:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: hasALBSchemaInternet
+    DependsOn:
+      - ECSServiceBlue
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-blue-auto-scaling
+      ScalingTargetId: !Ref AutoScalingTargetBlue
+      PolicyType: TargetTrackingScaling
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 50.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleOutCooldown: 60
+        ScaleInCooldown: 60
+
+  AutoScallingPolicyGreen:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: hasALBSchemaInternet
+    DependsOn:
+      - ECSServiceGreen
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-green-auto-scaling
+      ScalingTargetId: !Ref AutoScalingTargetGreen
+      PolicyType: TargetTrackingScaling
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 50.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleOutCooldown: 60
+        ScaleInCooldown: 60
+
+  # ECS Service ScalablePolicy (Internal)
+  InternalAutoScallingPolicyBlue:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: hasALBSchemaInternal
+    DependsOn:
+      - ECSInternalServiceBlue
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-blue-i-auto-scaling
+      ScalingTargetId: !Ref InternalAutoScalingTargetBlue
+      PolicyType: TargetTrackingScaling
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 50.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleOutCooldown: 60
+        ScaleInCooldown: 60
+
+  InternalAutoScallingPolicyGreen:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: hasALBSchemaInternal
+    DependsOn:
+      - ECSInternalServiceGreen
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-green-i-auto-scaling
+      ScalingTargetId: !Ref InternalAutoScalingTargetGreen
+      PolicyType: TargetTrackingScaling
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 50.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleOutCooldown: 60
+        ScaleInCooldown: 60
+
 #  ServiceScaleOutGreenAlarm: Type: AWS::AutoScalingPlans::ScalingPlan
 #    Properties:
-#      ApplicationSource: 
+#      ApplicationSource:
 #        CloudFormationStackARN:
 #
-#      ScalingInstructions: 
+#      ScalingInstructions:
 #        - fff
 
-
-    
 Outputs:
   ECRepository:
     Description: EC Repository Path
-    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR} 
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}
   ECRBlue:
     Description: EC Repository Path
     Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-blue
@@ -370,11 +720,10 @@ Outputs:
     Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-green
   ALBListener:
     Description: ALB Listener ARN
-    Value: !Ref ALBListener
+    Value: !If [hasALBSchemaInternet, !Ref ALBListener, ""]
+  InternalALBListener:
+    Description: InternalALB Listener ARN
+    Value: !If [hasALBSchemaInternal, !Ref InternalALBListener, ""]
   SystemName:
     Description: Sub System Name
     Value: !Ref SystemName
-    
-
-
-
