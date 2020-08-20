@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+Resources:
+  # ALB Logs on S3 Bucket
+  ALBLogsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub '${ServiceName}-${ENV}-alb-logs-bucket'
+      LifecycleConfiguration:
+        Rules:
+          - Id: S3LifecycleRule
+            Status: Enabled
+            ExpirationInDays: 366
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Bucket Policy for ALB Logs Bucket
+  ALBLogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ALBLogsBucket
+      PolicyDocument:
+        Id: ALBlogsBucketPolicy
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource:
+              - !Sub 'arn:aws:s3:::${ALBLogsBucket}/*/AWSLogs/${AWS::AccountId}/*'
+            Principal:
+              AWS: '582318560864'
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource:
+              - !Sub 'arn:aws:s3:::${ALBLogsBucket}/*/AWSLogs/${AWS::AccountId}/*'
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+          - Effect: Allow
+            Action:
+              - s3:GetBucketAcl
+            Resource:
+              - !Sub 'arn:aws:s3:::${ALBLogsBucket}'
+            Principal:
+              Service: delivery.logs.amazonaws.com
+
+Outputs:
+  ALBLogsBucketName:
+    Value: !Ref ALBLogsBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-alb-logs-bucket
+  ALBLogsBucketArn:
+    Value: !GetAtt 'ALBLogsBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-alb-logs-arn
