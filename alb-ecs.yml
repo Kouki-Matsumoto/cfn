@@ -39,6 +39,14 @@ Parameters:
     Default: 'arn:aws:acm:ap-northeast-1:845168618390:certificate/976753a5-264e-4e99-94d0-54f7760214ea'
     Description: Specify ACM ARN
 
+  # Target Group Health Check Path
+  HealthCheckPathName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-_]*$
+    Default: health_check
+    ConstraintDescription: Malformed input-Parameter HealthCheckPathName must match pattern [a-z0-9-_]+
+    Description: Enter Target Group Health Check Path, like 「health_check」
+
   TaskRoleOutputName:
     Type: String
     Default: 'ecs-task-dynamodb-role-arn'
@@ -64,7 +72,7 @@ Resources:
       VpcId:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
       UnhealthyThresholdCount: '2'
-      HealthCheckPath: "/health_check"
+      HealthCheckPath: !Sub "/${HealthCheckPathName}"
       HealthCheckPort: traffic-port
       TargetType: ip
       Matcher:
@@ -86,7 +94,7 @@ Resources:
       VpcId:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
       UnhealthyThresholdCount: '2'
-      HealthCheckPath: "/health_check"
+      HealthCheckPath: !Sub "/${HealthCheckPathName}"
       HealthCheckPort: traffic-port
       TargetType: ip
       Matcher:
@@ -110,7 +118,7 @@ Resources:
       VpcId:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
       UnhealthyThresholdCount: '2'
-      HealthCheckPath: "/health_check"
+      HealthCheckPath: !Sub "/${HealthCheckPathName}"
       HealthCheckPort: traffic-port
       TargetType: ip
       Matcher:
@@ -132,7 +140,7 @@ Resources:
       VpcId:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
       UnhealthyThresholdCount: '2'
-      HealthCheckPath: "/health_check"
+      HealthCheckPath: !Sub "/${HealthCheckPathName}"
       HealthCheckPort: traffic-port
       TargetType: ip
       Matcher:
