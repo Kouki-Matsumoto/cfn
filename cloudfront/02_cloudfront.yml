@@ -1,0 +1,257 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev.'
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  #システム名
+  SystemName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「web」
+
+  #事業者名
+  CustomerName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter CustomerName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「tipness」
+
+  # SSL ACM ARN
+  SSLArn:
+    Type: String
+    Default: 'arn:aws:acm:us-east-1:845168618390:certificate/cc73e8da-4e30-48a2-8c4f-5e1cb36aec09'
+    Description: Specify ACM ARN
+
+  # ALB Domain Name
+  ALBDomainName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-.]*.elb.amazonaws.com$
+    ConstraintDescription: Malformed input-Parameter ALBDomainName must match pattern [a-z0-9-.]+.elb.amazonaws.com
+    Description: Enter ALB domain name, like 「web-stg-alb-xxxxxxxx.ap-northeast-1.elb.amazonaws.com」
+    MinLength: 1
+
+  # Distribution DomainName
+  DistributionDomainName:
+    Type: String
+    AllowedPattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
+    ConstraintDescription: Malformed input-Parameter DistributionCname must match pattern ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
+    Description: Enter Distribution DistributionDomainName, like 「xxxxx.stores.play.jp」
+
+  # Attach WebACL
+  AttachWebACL:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    ConstraintDescription: Enter true or false.'
+
+Conditions:
+  isProd: !Equals [!Ref ENV, prod]
+  hasWebACL: !And
+    - !Equals [!Ref AttachWebACL, 'true']
+    - !Not
+      - Condition: isProd
+  hasNotDomainName: !Equals [!Ref DistributionDomainName, '']
+
+Resources:
+  # ALB Route53 RecordSet
+  ALBRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: 'stores.play.jp.'
+      Name: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Sub ${SystemName}-lb.stores.play.jp.
+      Type: A
+      AliasTarget:
+        DNSName: !Ref ALBDomainName
+        HostedZoneId: Z14GRHDCWA56QT
+
+  # CloudFront Distribution for WEB
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        PriceClass: PriceClass_All
+        Comment: !Sub '[${ENV}] ${ServiceName}-${ENV}-${SystemName} Distribution'
+        Aliases:
+          - !Join
+            - ''
+            - - !If [isProd, '', !Sub '${ENV}-']
+              - !If
+                - hasNotDomainName
+                - !Join
+                  - ''
+                  - - !Ref CustomerName
+                    - '.stores.play.jp'
+                - !Ref DistributionDomainName
+        Origins:
+        - CustomOriginConfig:
+            OriginProtocolPolicy: https-only
+            OriginKeepaliveTimeout: 5
+            OriginSSLProtocols:
+                - TLSv1.2
+          DomainName: !Join
+            - ''
+            - - !If [isProd, '', !Sub '${ENV}-']
+              - !Sub ${SystemName}-lb.stores.play.jp
+          Id: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+          ConnectionAttempts: 3
+          ConnectionTimeout: 10
+        DefaultCacheBehavior:
+          TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - DELETE
+            - POST
+            - OPTIONS
+            - PUT
+            - PATCH
+          CachedMethods:
+            - GET
+            - HEAD
+          MinTTL: 0
+          MaxTTL: 0
+          DefaultTTL: 0
+          Compress: true
+          ForwardedValues:
+            Cookies:
+              Forward: all
+            QueryString: true
+            Headers:
+              - '*'
+        CacheBehaviors:
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /images/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            MinTTL: 300
+            MaxTTL: 14400
+            DefaultTTL: 7200
+            ForwardedValues:
+              Cookies:
+                Forward: none
+              QueryString: false
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /assets/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            DefaultTTL: 600
+            MaxTTL: 1800
+            MinTTL: 300
+            ForwardedValues:
+              Cookies:
+                Forward: none
+              QueryString: false
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /js/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            MinTTL: 300
+            MaxTTL: 14400
+            DefaultTTL: 7200
+            ForwardedValues:
+              Cookies:
+                Forward: none
+              QueryString: false
+        ViewerCertificate:
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2018
+          AcmCertificateArn: !Ref SSLArn
+        HttpVersion: http2
+        Enabled: true
+        IPV6Enabled: false
+        Logging:
+          Bucket: !Join
+            - ''
+            - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-logs-bucket
+              - '.s3.amazonaws.com'
+          Prefix: !Sub web/${CustomerName}/
+        WebACLId: !If
+            - hasWebACL
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
+            - !Ref AWS::NoValue
+
+  # CloudFront Route53 RecordSet
+  CFRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: hasNotDomainName
+    DependsOn: WebDistribution
+    Properties:
+      HostedZoneName: 'stores.play.jp.'
+      Name: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Join
+            - ''
+            - - !Ref CustomerName
+              - '.stores.play.jp'
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt 'WebDistribution.DomainName'
+        HostedZoneId: Z2FDTNDATAQYW2
+
+  # CloudWatch Alarm
+  CloudFront5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: isProd
+    Properties:
+      AlarmName: !Sub 'CloudFront-5xx-Error-Rate ${ServiceName}-${ENV}-${SystemName}'
+      ActionsEnabled: true
+      Namespace: AWS/CloudFront
+      MetricName: 5xxErrorRate
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref WebDistribution
+        - Name: Region
+          Value: Global
+      AlarmDescription: 'CroudFront 5xxレート'
+      Statistic: Maximum
+      Period: 300
+      Threshold: 1.0
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-alarm-sns-topic2
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-alarm-sns-topic2
+
+Outputs:
+  WebDistributionDomainName:
+    Value: !GetAtt 'WebDistribution.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-domain
