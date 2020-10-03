@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  #システム名
+  SystemName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「venus-api」
+
+Resources:
+  # Closed IPset for CloudFront
+  CFWAFv2IPSet:
+    Type: AWS::WAFv2::IPSet
+    Properties:
+      Addresses:
+        - 113.43.239.66/32
+        - 122.221.102.154/32
+        ## Add IP Address　↓↓↓
+      Description: !Sub ${ServiceName}-${ENV}-${SystemName} IPset to CloudFront closed
+      IPAddressVersion: IPV4
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-closed
+      Scope: CLOUDFRONT
+
+  # WEB ACL
+  WAFv2WebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      DefaultAction:
+        Block: {}
+      Name: !Sub  ${ServiceName}-${ENV}-${SystemName}-webacl
+      Description: !Sub ${ServiceName}-${ENV}-${SystemName} WebACL
+      Rules:
+        - Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-rule
+          Action:
+              Allow: {}
+          Priority: 0
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt CFWAFv2IPSet.Arn
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-closed
+            SampledRequestsEnabled: true
+      Scope: "CLOUDFRONT"
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl
+        SampledRequestsEnabled: true
+
+Outputs:
+  CFIPsetArn:
+    Value: !GetAtt 'CFWAFv2IPSet.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-ipset-arn
+  CFIPsetId:
+    Value: !GetAtt 'CFWAFv2IPSet.Id'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-ipset-id
+  WebACLArn:
+    Value: !GetAtt 'WAFv2WebACL.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
+  WebACLId:
+    Value: !GetAtt 'WAFv2WebACL.Id'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-id
