@@ -80,6 +80,23 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
 
+  ECSTaskRoleForAriel:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-for-ariel-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+
   ECSServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -124,6 +141,10 @@ Outputs:
     Value: !GetAtt  ECSTaskRoleForMercury.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-mercury-role
+  ECSTaskRoleForAriel:
+    Value: !GetAtt  ECSTaskRoleForAriel.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-ariel-role
   ECSServiceRoleARN:
     Value: !GetAtt  ECSServiceRole.Arn
     Export:
