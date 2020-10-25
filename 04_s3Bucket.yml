@@ -65,6 +65,20 @@ Resources:
             Principal:
               Service: delivery.logs.amazonaws.com
 
+  # Config files on S3 Bucket
+  ConfigBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub '${ServiceName}-${ENV}-config-files'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
 Outputs:
   ALBLogsBucketName:
     Value: !Ref ALBLogsBucket
@@ -74,3 +88,19 @@ Outputs:
     Value: !GetAtt 'ALBLogsBucket.Arn'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-alb-logs-arn
+  ALBLogsBucketDomainName:
+    Value: !GetAtt 'ALBLogsBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-alb-logs-domain
+  ConfigBucketName:
+    Value: !Ref ConfigBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-config-logs-bucket
+  ConfigBucketArn:
+    Value: !GetAtt 'ConfigBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-config-logs-arn
+  ConfigBucketDomainName:
+    Value: !GetAtt 'ConfigBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-config-logs-domain
