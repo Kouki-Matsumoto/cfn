@@ -239,6 +239,7 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+
   # S3Bucket Policy To Allow Access From CloudFront OAI
   SitemapBucketPolicy:
     Type: AWS::S3::BucketPolicy
