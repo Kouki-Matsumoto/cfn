@@ -71,10 +71,10 @@ Resources:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneName: 'stores.play.jp.'
-      Name: !Join
-        - ''
-        - - !If [isProd, '', !Sub '${ENV}-']
-          - !Sub ${SystemName}-lb.stores.play.jp.
+        Name: !Join
+          - ''
+          - - !If [isProd, '', !Sub '${ENV}-']
+            - !Sub ${SystemName}-lb.stores.play.jp.
       Type: A
       AliasTarget:
         DNSName: !Ref ALBDomainName
@@ -111,6 +111,10 @@ Resources:
           Id: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
           ConnectionAttempts: 3
           ConnectionTimeout: 10
+        - DomainName: !GetAtt 'SitemapBucket.DomainName'
+          Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sitemap
+          S3OriginConfig:
+            OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${SitemapBucketOriginAccessIdentity}
         DefaultCacheBehavior:
           TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
           ViewerProtocolPolicy: redirect-to-https
@@ -223,6 +227,37 @@ Resources:
       AliasTarget:
         DNSName: !GetAtt 'WebDistribution.DomainName'
         HostedZoneId: Z2FDTNDATAQYW2
+
+  # Sitemap S3Bucket
+  SitemapBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-${SystemName}-sitemap-bucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  SitemapBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SitemapBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${SitemapBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SitemapBucketOriginAccessIdentity}
+
+  # Sitemap Origin Access Identity
+  SitemapBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-${SystemName}-sitemap-identity
 
   # CloudWatch Alarm
   CloudFront5xxAlarm:
