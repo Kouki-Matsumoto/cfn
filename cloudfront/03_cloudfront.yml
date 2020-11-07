@@ -54,7 +54,14 @@ Parameters:
   AttachWebACL:
     Type: String
     AllowedValues: ['true', 'false']
-    Default: 'true'
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
+  # Enable GeolocationHeader
+  EnableGeolocationHeader:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
     ConstraintDescription: Enter true or false.'
 
 Conditions:
@@ -64,6 +71,7 @@ Conditions:
     - !Not
       - Condition: isProd
   hasNotDomainName: !Equals [!Ref DistributionDomainName, '']
+  hasGeolocation: !Equals [!Ref EnableGeolocationHeader, 'true']
 
 Resources:
   # ALB Route53 RecordSet
@@ -71,10 +79,10 @@ Resources:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneName: 'stores.play.jp.'
-      Name: !Join
-        - ''
-        - - !If [isProd, '', !Sub '${ENV}-']
-          - !Sub ${SystemName}-lb.stores.play.jp.
+        Name: !Join
+          - ''
+          - - !If [isProd, '', !Sub '${ENV}-']
+            - !Sub ${SystemName}-lb.stores.play.jp.
       Type: A
       AliasTarget:
         DNSName: !Ref ALBDomainName
@@ -133,12 +141,12 @@ Resources:
           MaxTTL: 0
           DefaultTTL: 0
           Compress: true
-          ForwardedValues:
-            Cookies:
-              Forward: all
-            QueryString: true
-            Headers:
-              - '*'
+          CachePolicyId:
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+          OriginRequestPolicyId: !If
+            - hasGeolocation
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-geolocation-policy-id
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
         CacheBehaviors:
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
             PathPattern: /images/*
@@ -150,13 +158,16 @@ Resources:
               - HEAD
             Compress: true
             ViewerProtocolPolicy: redirect-to-https
-            MinTTL: 300
-            MaxTTL: 14400
-            DefaultTTL: 7200
-            ForwardedValues:
-              Cookies:
-                Forward: none
-              QueryString: false
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
+            OriginRequestPolicyId: !If
+              - hasGeolocation
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-geolocation-policy-id
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+            OriginRequestPolicyId: !If
+              - hasGeolocation
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-geolocation-policy-id
+              - !Ref AWS::NoValue
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
             PathPattern: /assets/*
             AllowedMethods:
@@ -167,13 +178,12 @@ Resources:
               - HEAD
             Compress: true
             ViewerProtocolPolicy: redirect-to-https
-            DefaultTTL: 600
-            MaxTTL: 1800
-            MinTTL: 300
-            ForwardedValues:
-              Cookies:
-                Forward: none
-              QueryString: false
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
+            OriginRequestPolicyId: !If
+              - hasGeolocation
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-geolocation-policy-id
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
             PathPattern: /js/*
             AllowedMethods:
@@ -184,13 +194,12 @@ Resources:
               - HEAD
             Compress: true
             ViewerProtocolPolicy: redirect-to-https
-            MinTTL: 300
-            MaxTTL: 14400
-            DefaultTTL: 7200
-            ForwardedValues:
-              Cookies:
-                Forward: none
-              QueryString: false
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-js-policy-id
+            OriginRequestPolicyId: !If
+              - hasGeolocation
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-geolocation-policy-id
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
         ViewerCertificate:
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2018
