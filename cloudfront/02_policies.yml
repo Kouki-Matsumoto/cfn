@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev.'
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+Resources:
+  # Cache Policy
+  ## Disabled Cache Policy
+  DisabledCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+          Name: !Sub ${ServiceName}-${ENV}-disabled-cache-policy
+          Comment: !Sub ${ServiceName}-${ENV}-disabled-cache-policy
+          DefaultTTL: 0
+          MaxTTL: 0
+          MinTTL: 0
+          ParametersInCacheKeyAndForwardedToOrigin:
+            EnableAcceptEncodingBrotli: false
+            EnableAcceptEncodingGzip: false
+            HeadersConfig:
+              HeaderBehavior: none
+            CookiesConfig:
+              CookieBehavior: none
+            QueryStringsConfig:
+              QueryStringBehavior: none
+
+  ## Image Cache Policy
+  ImageCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+          Name: !Sub ${ServiceName}-${ENV}-img-cache-policy
+          Comment: !Sub ${ServiceName}-${ENV}-img-cache-policy
+          DefaultTTL: 7200
+          MaxTTL: 14400
+          MinTTL: 300
+          ParametersInCacheKeyAndForwardedToOrigin:
+            EnableAcceptEncodingBrotli: true
+            EnableAcceptEncodingGzip: true
+            HeadersConfig:
+              HeaderBehavior: none
+            CookiesConfig:
+              CookieBehavior: none
+            QueryStringsConfig:
+              QueryStringBehavior: none
+
+  ## Assets Cache Policy
+  AssetsCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+          Name: !Sub ${ServiceName}-${ENV}-assets-cache-policy
+          Comment: !Sub ${ServiceName}-${ENV}-assets-cache-policy
+          DefaultTTL: 600
+          MaxTTL: 1800
+          MinTTL: 300
+          ParametersInCacheKeyAndForwardedToOrigin:
+            EnableAcceptEncodingBrotli: true
+            EnableAcceptEncodingGzip: true
+            HeadersConfig:
+              HeaderBehavior: none
+            CookiesConfig:
+              CookieBehavior: none
+            QueryStringsConfig:
+              QueryStringBehavior: none
+
+  ## Js Cache Policy
+  JsCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+          Name: !Sub ${ServiceName}-${ENV}-js-cache-policy
+          Comment: !Sub ${ServiceName}-${ENV}-js-cache-policy
+          DefaultTTL: 7200
+          MaxTTL: 14400
+          MinTTL: 300
+          ParametersInCacheKeyAndForwardedToOrigin:
+            EnableAcceptEncodingBrotli: true
+            EnableAcceptEncodingGzip: true
+            HeadersConfig:
+              HeaderBehavior: none
+            CookiesConfig:
+              CookieBehavior: none
+            QueryStringsConfig:
+              QueryStringBehavior: none
+
+  # Origin request Policy
+  ## All Viewer Policy
+  AllViewerPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub ${ServiceName}-${ENV}-allviewer-policy
+        Comment: !Sub ${ServiceName}-${ENV}-allviewer-policy
+        HeadersConfig:
+          HeaderBehavior: allViewer
+        CookiesConfig:
+          CookieBehavior: all
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
+  ## Geolocation Headers Policy
+  GeolocationHeadersPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub ${ServiceName}-${ENV}-geolocation-policy
+        Comment: !Sub ${ServiceName}-${ENV}-geolocation-policy
+        HeadersConfig:
+          HeaderBehavior: whitelist
+          Headers:
+            - User-Agent
+            - CloudFront-Viewer-Country
+            - CloudFront-Viewer-Country-Name
+            - CloudFront-Viewer-Country-Region
+            - CloudFront-Viewer-Country-Region-Name
+        CookiesConfig:
+          CookieBehavior: all
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
+Outputs:
+  DisabledCachePolicyId:
+    Value: !Ref DisabledCachePolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+  ImageCachePolicyId:
+    Value: !Ref ImageCachePolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-image-policy-id
+  AssetsCachePolicyId:
+    Value: !Ref AssetsCachePolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-assets-policy-id
+  JsCachePolicyId:
+    Value: !Ref JsCachePolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-js-policy-id
+  AllViewerPolicyId:
+    Value: !Ref AllViewerPolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+  GeolocationHeadersPolicyId:
+    Value: !Ref GeolocationHeadersPolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-geolocation-policy-id
