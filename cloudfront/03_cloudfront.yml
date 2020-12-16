@@ -79,10 +79,10 @@ Resources:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneName: 'stores.play.jp.'
-        Name: !Join
-          - ''
-          - - !If [isProd, '', !Sub '${ENV}-']
-            - !Sub ${SystemName}-lb.stores.play.jp.
+      Name: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Sub ${SystemName}-lb.stores.play.jp.
       Type: A
       AliasTarget:
         DNSName: !Ref ALBDomainName
