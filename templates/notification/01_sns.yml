@@ -1,0 +1,53 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Notification to Slack
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  # SNS Topic サブスクリプション用Lambda
+  SubsciptionLambdaFunctionArn:
+    Type: String
+    Description: Enter lambda function arn, like 「arn:aws:lambda:ap-northeast-1:xxxx:function:xxxxxxx」
+
+Conditions:
+  hasNotSubscriptionLambda: !Equals [!Ref SubsciptionLambdaFunctionArn, '']
+
+Resources:
+###################################### SNS ############################################
+
+  # CloudWatch Alarm用 SNS Topic
+  CloudWatchAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-sns-topic
+      Subscription: !If
+        - hasNotSubscriptionLambda
+        # Lambda for Slack
+        - !Ref 'AWS::NoValue'
+        - - Endpoint: !Ref SubsciptionLambdaFunctionArn
+            Protocol: "lambda"
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-sns-topic
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+
+Outputs:
+  CloudWatchAlarmTopicArn:
+    Value: !Ref CloudWatchAlarmTopic
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic

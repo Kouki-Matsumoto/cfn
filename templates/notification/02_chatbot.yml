@@ -1,0 +1,83 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Notification to Slack
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  # SlackのワークスペースID
+  WorkspaceId:
+    Type: String
+    Description: Enter chatbot slack workspaseID, like 「T024XKAKS」
+
+  # SlackのチャンネルID
+  ChannelId:
+    Type: String
+    Description: Enter send slack channelID, like 「C018C8P7TLM」
+
+  SnsTopicArns:
+    Type: CommaDelimitedList
+    Description: Enter sns topic list, like 「arn:aws:sns:ap-northeast-1:<accountId>:<tipicName>」
+
+Conditions:
+  hasSnsTopicArns: !Not
+    - !Equals
+      - !Join ["", !Ref SnsTopicArns]
+      - ''
+
+Resources:
+
+###################################### Chatbot ############################################
+
+  # Chatbotの定義
+  CloudWatchAlarmForChatbot:
+    Type: AWS::Chatbot::SlackChannelConfiguration
+    Properties:
+      ConfigurationName: !Sub ${ServiceName}-${ENV}-cloudwatch-chatbot-for-cloudwatch-alarm
+      IamRoleArn: !GetAtt ChatbotIamRole.Arn
+      LoggingLevel: INFO
+      SlackChannelId: !Ref ChannelId
+      SlackWorkspaceId: !Ref WorkspaceId
+      SnsTopicArns: !If
+        - hasSnsTopicArns
+        - !Ref SnsTopicArns
+        - !Ref AWS::NoValue
+
+###################################### IAM Role ############################################
+
+  # Chatbotで利用するIAMロールの定義
+  ChatbotIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-cloudwatch-chatbot-iam-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: chatbot.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: chatbot-iam-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:Describe*
+                  - cloudwatch:Get*
+                  - cloudwatch:List*
+                  - logs:*
+                Resource:
+                  - "*"
