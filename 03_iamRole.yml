@@ -97,6 +97,26 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
       - arn:aws:iam::aws:policy/AmazonSQSFullAccess
 
+  ECSTaskRoleForDDBAndGlue:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-for-ddb-glue-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+      - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
+      - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
   ECSServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -149,5 +169,7 @@ Outputs:
     Value: !GetAtt  ECSServiceRole.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-service-role
-
-
+  ECSTaskRoleForDDBAndGlue:
+    Value: !GetAtt  ECSTaskRoleForDDBAndGlue.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-ddb-glue-role
