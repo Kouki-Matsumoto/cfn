@@ -22,20 +22,14 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
     Description: Enter service name, like 「venus-api」
 
-Resources:
-  # Closed IPset for CloudFront
-  CFWAFv2IPSet:
-    Type: AWS::WAFv2::IPSet
-    Properties:
-      Addresses:
-        - 113.43.239.66/32
-        - 122.221.102.154/32
-        ## Add IP Address　↓↓↓
-      Description: !Sub ${ServiceName}-${ENV}-${SystemName} IPset to CloudFront closed
-      IPAddressVersion: IPV4
-      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-closed
-      Scope: CLOUDFRONT
+  # Project ID
+  ProjectId:
+    Type: String
+    AllowedPattern: ^[a-z0-9-_]*$
+    ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
+    Description: Enter project id, like 「tipness」,「shiki」
 
+Resources:
   # WEB ACL
   WAFv2WebACL:
     Type: AWS::WAFv2::WebACL
@@ -51,7 +45,8 @@ Resources:
           Priority: 0
           Statement:
             IPSetReferenceStatement:
-              Arn: !GetAtt CFWAFv2IPSet.Arn
+              Arn:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-ipset-arn
           VisibilityConfig:
             CloudWatchMetricsEnabled: true
             MetricName: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-closed
@@ -61,16 +56,19 @@ Resources:
         CloudWatchMetricsEnabled: true
         MetricName: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl
         SampledRequestsEnabled: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-webacl
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
 
 Outputs:
-  CFIPsetArn:
-    Value: !GetAtt 'CFWAFv2IPSet.Arn'
-    Export:
-      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-ipset-arn
-  CFIPsetId:
-    Value: !GetAtt 'CFWAFv2IPSet.Id'
-    Export:
-      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-ipset-id
   WebACLArn:
     Value: !GetAtt 'WAFv2WebACL.Arn'
     Export:

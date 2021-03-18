@@ -1,0 +1,682 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  #システム名
+  SystemName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「venus-api」
+
+  # コンテナポート
+  ContainerPort:
+    Type: Number
+    MinValue: 1
+    MaxValue: 65565
+    ConstraintDescription: Malformed input-Parameter ContainerPort must match 1 ~ 65565
+    Description: Enter number of container port, like 「8080」
+
+  # SSL ACM ARN
+  SSLArn:
+    Type: String
+    Default: 'arn:aws:acm:ap-northeast-1:845168618390:certificate/857b5e23-f62e-4514-a139-a44ef2f1083d'
+    Description: Specify ACM ARN
+
+  # Target Group Health Check Path
+  HealthCheckPathName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-_]*$
+    Default: health_check
+    ConstraintDescription: Malformed input-Parameter HealthCheckPathName must match pattern [a-z0-9-_]+
+    Description: Enter Target Group Health Check Path, like 「health_check」
+
+  TaskRoleOutputName:
+    Type: String
+    Default: 'ecs-task-dynamodb-role-arn'
+    Description: Output Name of ECS Task Role. Default (ecs-task-dynamodb-role-arn)
+
+  # ECS Task(Blue) Desired Count
+  ECSTaskDesiredCountBlue:
+    Type: Number
+    MinValue: 0
+    MaxValue: 50
+    Default: 0
+    ConstraintDescription: Malformed input-Parameter ECSTaskDesiredCountBlue must match 0 ~ 50
+    Description: Enter number of ECS task blue desired count, like 「1」
+
+  # ECS Task(Blue) Desired Count
+  ECSTaskDesiredCountGreen:
+    Type: Number
+    MinValue: 0
+    MaxValue: 50
+    Default: 0
+    ConstraintDescription: Malformed input-Parameter ECSTaskDesiredCountGreen must match 0 ~ 50
+    Description: Enter number of ECS task green desired count, like 「1」
+
+  # ECS TaskDefinition CPU
+  ECSTaskDefinitionCPU:
+    Type: Number
+    AllowedValues: [256, 512, 1024, 2048, 3072]
+    Default: 512
+    Description: Enter 512, 1024 or 2048 ...
+
+  # ECS TaskDefinition Memory
+  ECSTaskDefinitionMemory:
+    Type: Number
+    AllowedValues: [512, 1024, 2048, 3072, 4096]
+    Default: 1024
+    Description: Enter 512, 1024 or 2048 ...
+
+  # Project ID
+  ProjectId:
+    Type: String
+    AllowedPattern: ^[a-z0-9-_]*$
+    ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
+    Description: Enter project id, like 「tipness」,「shiki」
+
+Conditions:
+  isProd: !Equals [!Ref ENV, prod]
+  hasProjectId: !Not [!Equals [!Ref ProjectId, '']]
+
+
+Resources:
+
+####################################### Target Group for ALB ############################################
+
+  # Target Group (Public)
+  ALBTargetBlue:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${SystemName}-${ENV}-blue
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      UnhealthyThresholdCount: '2'
+      HealthCheckPath: !Sub "/${HealthCheckPathName}"
+      HealthCheckPort: traffic-port
+      TargetType: ip
+      Matcher:
+        HttpCode: '200'
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-blue
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+  ALBTargetGreen:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${SystemName}-${ENV}-green
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      UnhealthyThresholdCount: '2'
+      HealthCheckPath: !Sub "/${HealthCheckPathName}"
+      HealthCheckPort: traffic-port
+      TargetType: ip
+      Matcher:
+        HttpCode: '200'
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-green
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+####################################### Application Load Balancer ############################################
+
+  # PublicALB
+  PublicALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${SystemName}-${ENV}-alb
+      Type: application
+      IpAddressType: ipv4
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: true
+        - Key: access_logs.s3.bucket
+          Value:
+            Fn::ImportValue: !Sub '${ServiceName}-${ENV}-alb-logs-bucket'
+        - Key: access_logs.s3.prefix
+          Value: !Sub '${SystemName}/public'
+      SecurityGroups:
+      - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-alb-sg-id
+      # WEB環境の場合はopenのSecurityグループをアタッチする
+      - !If
+        - isProd
+        - !Ref 'AWS::NoValue'
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-open-alb-sg-id
+      Subnets:
+      - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-public-subnet-a
+      - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-public-subnet-c
+      - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-public-subnet-d
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-alb
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+####################################### ALB Listener ############################################
+
+  # ALB Listener (Public)
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Port: 443
+      Protocol: HTTPS
+      LoadBalancerArn: !Ref PublicALB
+      Certificates:
+        - CertificateArn: !Ref SSLArn
+        - !Ref "AWS::NoValue"
+      SslPolicy: "ELBSecurityPolicy-2016-08"
+      DefaultActions:
+      - Type: fixed-response
+        FixedResponseConfig:
+          ContentType: text/plain
+          StatusCode: 404
+          MessageBody: 'NotFound'
+
+  ALBBlueGreenListener:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    DependsOn: ALBListener
+    Properties:
+      ListenerArn: !Ref ALBListener
+      Priority: 1
+      Conditions:
+      - Field: path-pattern
+        PathPatternConfig:
+          Values:
+          - '/*'
+      - Field: http-header
+        HttpHeaderConfig:
+          HttpHeaderName: x-pre-shared-key
+          Values:
+            - !Ref SystemName
+      Actions:
+      - Type: forward
+        ForwardConfig:
+          TargetGroups:
+          - TargetGroupArn: !Ref ALBTargetBlue
+            Weight: 1
+          - TargetGroupArn: !Ref ALBTargetGreen
+            Weight: 0
+
+  ALBNoSSLRedirectListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      LoadBalancerArn: !Ref PublicALB
+      DefaultActions:
+      - Type: redirect
+        RedirectConfig:
+          Host: '#{host}'
+          Path: '/#{path}'
+          Port: 443
+          Protocol: HTTPS
+          Query: '#{query}'
+          StatusCode: HTTP_301
+
+####################################### ECR ############################################
+
+  # Repository
+  ECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${SystemName}-${ENV}
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-ecr
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+####################################### ECS ############################################
+
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${SystemName}-${ENV}
+      ClusterSettings:
+        - Name: containerInsights
+          Value: !If [isProd, enabled, disabled]
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-ecs
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+  # ECS Task Definitions (Public)
+  ECSTaskDefinitionBlue:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${SystemName}-${ENV}-blue
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: !Ref ECSTaskDefinitionCPU
+      Memory: !Ref ECSTaskDefinitionMemory
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
+      TaskRoleArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
+      ContainerDefinitions:
+        - Name: !Sub ${SystemName}-${ENV}-blue
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue
+          PortMappings:
+          - ContainerPort: !Ref ContainerPort
+            HostPort: !Ref ContainerPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}"
+              awslogs-region: ap-northeast-1
+              awslogs-stream-prefix: ecs
+          Environment:
+            - !If
+              - hasProjectId
+              - Name: 'PROJECT_ID'
+                Value: !Ref ProjectId
+              - !Ref 'AWS::NoValue'
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-blue-task-definition
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+  ECSTaskDefinitionGreen:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${SystemName}-${ENV}-green
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: !Ref ECSTaskDefinitionCPU
+      Memory: !Ref ECSTaskDefinitionMemory
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
+      TaskRoleArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
+      ContainerDefinitions:
+        - Name: !Sub ${SystemName}-${ENV}-green
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green
+          PortMappings:
+          - ContainerPort: !Ref ContainerPort
+            HostPort: !Ref ContainerPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}"
+              awslogs-region: ap-northeast-1
+              awslogs-stream-prefix: ecs
+          Environment:
+            - !If
+              - hasProjectId
+              - Name: 'PROJECT_ID'
+                Value: !Ref ProjectId
+              - !Ref 'AWS::NoValue'
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-green-task-definition
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+  # ECS Service (Public)
+  ECSServiceBlue:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ALBBlueGreenListener
+      - ECSTaskDefinitionBlue
+    Properties:
+      ServiceName: !Sub ${SystemName}-${ENV}-blue
+      Cluster: !Ref ECSCluster
+      DesiredCount: !Ref ECSTaskDesiredCountBlue
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Sub ${SystemName}-${ENV}-blue
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref ALBTargetBlue
+      TaskDefinition: !Ref ECSTaskDefinitionBlue
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-a
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-c
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-d
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-blue-service
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+  ECSServiceGreen:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ALBBlueGreenListener
+      - ECSTaskDefinitionGreen
+    Properties:
+      ServiceName: !Sub ${SystemName}-${ENV}-green
+      Cluster: !Ref ECSCluster
+      DesiredCount: !Ref ECSTaskDesiredCountGreen
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Sub ${SystemName}-${ENV}-green
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref ALBTargetGreen
+      TaskDefinition: !Ref ECSTaskDefinitionGreen
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-a
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-c
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-d
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+      Tags:
+      - Key: Name
+        Value: !Sub ${SystemName}-${ENV}-green-service
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: SystemName
+        Value: !Ref SystemName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+####################################### AutoScaling ############################################
+
+  # ECS Service ScalableTarget (Public)
+  AutoScalingTargetBlue:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref ECSTaskDesiredCountBlue
+      MaxCapacity: 10
+      ResourceId: !Sub
+        - 'service/${Cluster}/${Service}'
+        - Cluster: !Ref ECSCluster
+          Service: !GetAtt 'ECSServiceBlue.Name'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !Sub
+        arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+
+  AutoScalingTargetGreen:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref ECSTaskDesiredCountGreen
+      MaxCapacity: 10
+      ResourceId: !Sub
+        - 'service/${Cluster}/${Service}'
+        - Cluster: !Ref ECSCluster
+          Service: !GetAtt 'ECSServiceGreen.Name'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !Sub
+        arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+
+  # ECS Service ScalablePolicy (Public)
+  AutoScallingPolicyBlue:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    DependsOn:
+      - ECSServiceBlue
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-blue-auto-scaling
+      ScalingTargetId: !Ref AutoScalingTargetBlue
+      PolicyType: TargetTrackingScaling
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 50.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleOutCooldown: 60
+        ScaleInCooldown: 60
+
+  AutoScallingPolicyGreen:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    DependsOn:
+      - ECSServiceGreen
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-green-auto-scaling
+      ScalingTargetId: !Ref AutoScalingTargetGreen
+      PolicyType: TargetTrackingScaling
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 50.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleOutCooldown: 60
+        ScaleInCooldown: 60
+
+#######################################CloudWatch Alarms############################################
+
+  #  ECS Service CPUUtilization(Public)
+  CPUAlarmServiceBlue:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'CPUUtilization ['
+          - !GetAtt 'ECSServiceBlue.Name'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Dimensions:
+        - Name: ClusterName
+          Value : !Ref ECSCluster
+        - Name: ServiceName
+          Value: !GetAtt 'ECSServiceBlue.Name'
+      AlarmDescription: "ECS CPU使用率 80%"
+      Period: 300
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+
+  CPUAlarmServiceGreen:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'CPUUtilization ['
+          - !GetAtt 'ECSServiceGreen.Name'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Dimensions:
+        - Name: ClusterName
+          Value : !Ref ECSCluster
+        - Name: ServiceName
+          Value: !GetAtt 'ECSServiceGreen.Name'
+      AlarmDescription: "ECS CPU使用率 80%"
+      Period: 300
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+
+  #Public ALB 5xx
+  HTTPCodePublicELB5XX:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'HTTPCode_ELB_5XX_Count ['
+          - !GetAtt 'PublicALB.LoadBalancerName'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt 'PublicALB.LoadBalancerFullName'
+      AlarmDescription: "ALB HTTPコード5XX 5回以上/5分間発生"
+      Statistic: Sum
+      Period: 300
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+
+  #Public TargetBlue 5xx
+  HTTPCodeTargetBlue5XX:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'HTTPCode_Target_5XX_Count ['
+          - !GetAtt 'ALBTargetBlue.TargetGroupName'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: TargetGroup
+          Value: !GetAtt 'ALBTargetBlue.TargetGroupFullName'
+      AlarmDescription: "TargetGroup HTTPコード5XX 5回以上/5分間発生"
+      Statistic: Sum
+      Period: 300
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+
+  #Public TargetGreen 5xx
+  HTTPCodeTargetGreen5XX:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'HTTPCode_Target_5XX_Count ['
+          - !GetAtt 'ALBTargetGreen.TargetGroupName'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: TargetGroup
+          Value: !GetAtt 'ALBTargetGreen.TargetGroupFullName'
+      AlarmDescription: "TargetGroup HTTPコード5XX 5回以上/5分間発生"
+      Statistic: Sum
+      Period: 300
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+
+####################################### Outputs #######################################
+
+Outputs:
+  ECRepository:
+    Description: EC Repository Path
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}
+  ECRBlue:
+    Description: EC Repository Path
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-blue
+  ECRGreen:
+    Description: EC Repository Path
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-green
+  ALBListener:
+    Description: ALB Listener ARN
+    Value: !Ref ALBListener
+  SystemName:
+    Description: Sub System Name
+    Value: !Ref SystemName
+  PublicALBDomainName:
+    Description: Public ALB Domain Name
+    Value: !GetAtt PublicALB.DNSName

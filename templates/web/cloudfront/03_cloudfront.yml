@@ -1,0 +1,602 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev.'
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  #システム名
+  SystemName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「web」
+
+  #事業者名
+  CustomerName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter CustomerName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「tipness」
+
+  # SSL ACM ARN
+  SSLArn:
+    Type: String
+    Default: 'arn:aws:acm:us-east-1:845168618390:certificate/09ffb08c-060c-405d-8c0c-105ef8ec8d06'
+    Description: Specify ACM ARN
+
+  # ALB Domain Name
+  ALBDomainName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-.]*.elb.amazonaws.com$
+    ConstraintDescription: Malformed input-Parameter ALBDomainName must match pattern [a-z0-9-.]+.elb.amazonaws.com
+    Description: Enter ALB domain name, like 「web-stg-alb-xxxxxxxx.ap-northeast-1.elb.amazonaws.com」
+    MinLength: 1
+
+  # Distribution DomainName
+  DistributionDomainName:
+    Type: String
+    AllowedPattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
+    ConstraintDescription: Malformed input-Parameter DistributionCname must match pattern ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
+    Description: Enter Distribution DistributionDomainName, like 「xxxxx.stores.play.jp」
+
+  # Attach WebACL
+  AttachWebACL:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
+  # Customer Static Pages Bucket DomainName
+  CustomerStaticPagesBucketDomainName:
+    Type: String
+    AllowedPattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
+    ConstraintDescription: Malformed input-Parameter DistributionCname must match pattern ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
+    Description: Enter Distribution DistributionDomainName, like 「xxxxx..s3.amazonaws.com」
+
+Conditions:
+  isProd: !Equals [!Ref ENV, prod]
+  hasWebACL: !Equals [!Ref AttachWebACL, 'true']
+  hasNotDomainName: !Equals [!Ref DistributionDomainName, '']
+  hasCustomerStaticPagesBucketDomainName: !Not [!Equals [!Ref CustomerStaticPagesBucketDomainName, '']]
+  hasNotCustomerStaticPagesBucketDomainName: !Not [Condition: hasCustomerStaticPagesBucketDomainName]
+
+Resources:
+
+####################################### CloudFront ############################################
+
+  # CloudFront Distribution for WEB
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        PriceClass: PriceClass_All
+        Comment: !Sub '[${ENV}] ${ServiceName}-${ENV}-${SystemName} Distribution'
+        Aliases:
+          - !Join
+            - ''
+            - - !If [isProd, '', !Sub '${ENV}-']
+              - !If
+                - hasNotDomainName
+                - !Join
+                  - ''
+                  - - !Ref CustomerName
+                    - '.stores.play.jp'
+                - !Ref DistributionDomainName
+        ### Origins
+        Origins:
+          ## Origin for ALB
+          - CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginKeepaliveTimeout: 5
+              OriginSSLProtocols:
+                  - TLSv1.2
+            DomainName: !Join
+              - ''
+              - - !If [isProd, '', !Sub '${ENV}-']
+                - !Sub ${SystemName}-lb.stores.play.jp
+            Id: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            ConnectionAttempts: 3
+            ConnectionTimeout: 10
+            # 環境によらずカスタムヘッダをオリジンに転送する
+            OriginCustomHeaders:
+              - HeaderName: x-pre-shared-key
+                HeaderValue: !Ref SystemName
+          ## Origin for Sitemap
+          - DomainName: !GetAtt 'SitemapBucket.DomainName'
+            Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sitemap
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${SitemapBucketOriginAccessIdentity}
+          ## Origin for Error pages
+          - DomainName: !GetAtt 'ErrorPagesBucket.DomainName'
+            Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-error-pages
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${ErrorPagesBucketOriginAccessIdentity}
+          ## Origin for Sorry pages
+          - DomainName:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-domain
+            Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sorry-pages
+            S3OriginConfig:
+              OriginAccessIdentity: !Join
+                - ''
+                - - origin-access-identity/cloudfront/
+                  - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
+          ## Origin for Customer Static Pages
+          - !If
+            - hasCustomerStaticPagesBucketDomainName
+            - DomainName: !Ref CustomerStaticPagesBucketDomainName
+              Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              S3OriginConfig:
+                OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CustomerStaticPagesBucketOriginAccessIdentity}
+            - DomainName: !GetAtt  StaticPagesBucket.DomainName
+              Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              S3OriginConfig:
+                OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CustomerStaticPagesBucketOriginAccessIdentity}
+
+        ## Default Behavior
+        DefaultCacheBehavior:
+          TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - DELETE
+            - POST
+            - OPTIONS
+            - PUT
+            - PATCH
+          CachedMethods:
+            - GET
+            - HEAD
+          MinTTL: 0
+          MaxTTL: 0
+          DefaultTTL: 0
+          Compress: true
+          CachePolicyId:
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+          OriginRequestPolicyId:
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+        ### Behaviors
+        CacheBehaviors:
+          ## sitemap
+          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sitemap
+            PathPattern: /sitemap.xml
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+
+          ## json for static pages
+          - !If
+            - hasCustomerStaticPagesBucketDomainName
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              PathPattern: /json/*
+              AllowedMethods:
+                - GET
+                - HEAD
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            - !Ref 'AWS::NoValue'
+
+          ## news for static pages
+          - !If
+            - hasCustomerStaticPagesBucketDomainName
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              PathPattern: /news/*
+              AllowedMethods:
+                - GET
+                - HEAD
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            - !Ref 'AWS::NoValue'
+
+          ## about for static pages
+          - !If
+            - hasCustomerStaticPagesBucketDomainName
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              PathPattern: /about/*
+              AllowedMethods:
+                - GET
+                - HEAD
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            - !Ref 'AWS::NoValue'
+
+          ## help for static pages
+          - !If
+            - hasCustomerStaticPagesBucketDomainName
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              PathPattern: /help/*
+              AllowedMethods:
+                - GET
+                - HEAD
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            - !Ref 'AWS::NoValue'
+
+          ## resources for static pages
+          - !If
+            - hasCustomerStaticPagesBucketDomainName
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              PathPattern: /resources/*
+              AllowedMethods:
+                - GET
+                - HEAD
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            - !Ref 'AWS::NoValue'
+
+          ## lp for static pages
+          - !If
+            - hasCustomerStaticPagesBucketDomainName
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              PathPattern: /lp/*
+              AllowedMethods:
+                - GET
+                - HEAD
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            - !Ref 'AWS::NoValue'
+
+          ## sorry pages
+          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sorry-pages
+            PathPattern: /sorry/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+
+          ## images
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /images/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+
+          ## assets
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /assets/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+
+          ## js
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /js/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-js-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+        ViewerCertificate:
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2018
+          AcmCertificateArn: !Ref SSLArn
+        HttpVersion: http2
+        Enabled: true
+        IPV6Enabled: false
+        Logging:
+          Bucket: !Join
+            - ''
+            - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-logs-bucket
+              - '.s3.amazonaws.com'
+          Prefix: !Sub web/${CustomerName}/
+        WebACLId: !If
+            - hasWebACL
+            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
+            - !Ref AWS::NoValue
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${ENV}-cloudfront
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: ProjectId
+          Value: !Ref CustomerName
+
+####################################### Route53 ############################################
+
+  # ALB Route53 RecordSet
+  ALBRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: 'stores.play.jp.'
+      Name: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Sub ${SystemName}-lb.stores.play.jp.
+      Type: A
+      AliasTarget:
+        DNSName: !Ref ALBDomainName
+        HostedZoneId: Z14GRHDCWA56QT
+
+  # CloudFront Route53 RecordSet
+  CFRecord:
+    Type: AWS::Route53::RecordSet
+    # 先方ドメインを使用するしないに関わらずRoute53にレコードを作成する
+    # Condition: hasNotDomainName
+    DependsOn: WebDistribution
+    Properties:
+      HostedZoneName: 'stores.play.jp.'
+      Name: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Join
+            - ''
+            - - !Ref CustomerName
+              - '.stores.play.jp'
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt 'WebDistribution.DomainName'
+        HostedZoneId: Z2FDTNDATAQYW2
+
+####################################### S3 ############################################
+
+  # Sitemap S3Bucket
+  SitemapBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-${SystemName}-sitemap-bucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${ENV}-sitemap-bucket
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: ProjectId
+          Value: !Ref CustomerName
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  SitemapBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SitemapBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${SitemapBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SitemapBucketOriginAccessIdentity}
+
+  # Sitemap Origin Access Identity
+  SitemapBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-${SystemName}-sitemap-identity
+
+  # Error Pages S3Bucket
+  ErrorPagesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-${SystemName}-error-pages-bucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${ENV}-error-pages-bucket
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: ProjectId
+          Value: !Ref CustomerName
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  ErrorPagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ErrorPagesBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${ErrorPagesBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${ErrorPagesBucketOriginAccessIdentity}
+
+  # Error Pages Origin Access Identity
+  ErrorPagesBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-${SystemName}-error-pages-identity
+
+  # Static Pages S3Bucket
+  StaticPagesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Condition: hasNotCustomerStaticPagesBucketDomainName
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-${SystemName}-static-pages-bucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-${SystemName}-static-pages-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${ENV}-static-pages-bucket
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: ProjectId
+          Value: !Ref CustomerName
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  StaticPagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: hasNotCustomerStaticPagesBucketDomainName
+    Properties:
+      Bucket: !Ref StaticPagesBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${StaticPagesBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CustomerStaticPagesBucketOriginAccessIdentity}
+
+  # Customer Static Pages Origin Access Identity
+  CustomerStaticPagesBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-${SystemName}-customer-static-pages-identity
+
+####################################### CloudWatch Alarms ############################################
+
+  # CloudWatch Alarm
+  CloudFront5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'CloudFront-5xx-Error-Rate ${ServiceName}-${ENV}-${SystemName}'
+      ActionsEnabled: true
+      Namespace: AWS/CloudFront
+      MetricName: 5xxErrorRate
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref WebDistribution
+        - Name: Region
+          Value: Global
+      AlarmDescription: 'CroudFront 5xxレート'
+      Statistic: Maximum
+      Period: 300
+      Threshold: 1.0
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+
+####################################### Outputs #######################################
+
+Outputs:
+  WebDistributionDomainName:
+    Value: !GetAtt 'WebDistribution.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-domain

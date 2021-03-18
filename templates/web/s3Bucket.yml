@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  # Project ID
+  ProjectId:
+    Type: String
+    AllowedPattern: ^[a-z0-9-_]*$
+    ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
+    Description: Enter project id, like 「tipness」,「shiki」
+
+Conditions:
+  isProd: !Equals [!Ref ENV, prod]
+
+Resources:
+  # Project Image on S3 Bucket
+  ProjectImageBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Sub play-stores-${ProjectId}
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Join
+            - ''
+            - - !If [isProd, '', !Sub '${ENV}-']
+              - !Sub play-stores-${ProjectId}
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+      - Key: Name
+        Value: !Sub ${ProjectId}-${ENV}-img-bucket
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - Key: ProjectId
+        Value: !Ref ProjectId
+
+Outputs:
+  ProjectImageBucketName:
+    Value: !Ref ProjectImageBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-img-bucket
+  ProjectImageBucketArn:
+    Value: !GetAtt 'ProjectImageBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-img-arn
+  ProjectImageBucketDomainName:
+    Value: !GetAtt 'ProjectImageBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-img-domain

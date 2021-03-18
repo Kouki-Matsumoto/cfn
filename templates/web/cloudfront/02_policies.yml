@@ -98,6 +98,20 @@ Resources:
               QueryStringBehavior: none
 
   # Origin request Policy
+  ## Disabled Request Policy
+  DisabledOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy
+        Comment: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy
+        HeadersConfig:
+          HeaderBehavior: none
+        CookiesConfig:
+          CookieBehavior: none
+        QueryStringsConfig:
+          QueryStringBehavior: none
+
   ## All Viewer Policy
   AllViewerPolicy:
     Type: AWS::CloudFront::OriginRequestPolicy
@@ -112,7 +126,7 @@ Resources:
         QueryStringsConfig:
           QueryStringBehavior: all
 
-  ## Geolocation Headers Policy
+  ## Geolocation Headers Policy !!!不要になったら削除する
   GeolocationHeadersPolicy:
     Type: AWS::CloudFront::OriginRequestPolicy
     Properties:
@@ -127,6 +141,26 @@ Resources:
             - CloudFront-Viewer-Country-Name
             - CloudFront-Viewer-Country-Region
             - CloudFront-Viewer-Country-Region-Name
+        CookiesConfig:
+          CookieBehavior: all
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
+  ## All Viewer And CloudFront Policy
+  AllViewerAndCloudFrontPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy
+        Comment: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy
+        HeadersConfig:
+          HeaderBehavior: allViewerAndWhitelistCloudFront
+          Headers:
+            - CloudFront-Viewer-Country
+            - CloudFront-Viewer-Country-Name
+            - CloudFront-Viewer-Country-Region
+            - CloudFront-Viewer-Country-Region-Name
+            - CloudFront-Viewer-City
         CookiesConfig:
           CookieBehavior: all
         QueryStringsConfig:
@@ -149,6 +183,10 @@ Outputs:
     Value: !Ref JsCachePolicy
     Export:
       Name: !Sub ${ServiceName}-${ENV}-js-policy-id
+  DisabledOriginRequestPolicyId:
+    Value: !Ref DisabledOriginRequestPolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
   AllViewerPolicyId:
     Value: !Ref AllViewerPolicy
     Export:
@@ -157,3 +195,7 @@ Outputs:
     Value: !Ref GeolocationHeadersPolicy
     Export:
       Name: !Sub ${ServiceName}-${ENV}-geolocation-policy-id
+  AllViewerAndCloudFrontPolicyId:
+    Value: !Ref AllViewerAndCloudFrontPolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id

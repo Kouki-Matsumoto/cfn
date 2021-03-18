@@ -40,6 +40,31 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
+  # ALB Open SecurityGroup
+  OpenALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ServiceName}-${ENV}-open-alb-sg
+      GroupDescription: !Sub ${ServiceName}-${ENV}-open-alb-sg
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-open-alb-sg
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
   # Internal Network
   CommonSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -113,3 +138,7 @@ Outputs:
     Value: !GetAtt PlayOfficeSecurityGroup.GroupId
     Export:
       Name: !Sub ${ServiceName}-${ENV}-play-office-sg-id
+  OpenALBSecurityGroupId:
+    Value: !GetAtt OpenALBSecurityGroup.GroupId
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-open-alb-sg-id
