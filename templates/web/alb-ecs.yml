@@ -45,7 +45,7 @@ Parameters:
 
   TaskRoleOutputName:
     Type: String
-    Default: 'ecs-task-dynamodb-role-arn'
+    Default: 'ecs-task-for-ddb-s3-role'
     Description: Output Name of ECS Task Role. Default (ecs-task-dynamodb-role-arn)
 
   # ECS Task(Blue) Desired Count
