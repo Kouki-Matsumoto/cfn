@@ -32,7 +32,7 @@ Parameters:
   AllowedIps:
     Description: Comma-separated list of allowed IP CIDR blocks. The default addresses listed are BitBucket Cloud IP ranges.
     Type: CommaDelimitedList
-    Default: 113.43.239.66/32,122.221.102.154/32
+    Default: 113.43.239.66/32,122.221.102.154/32,113.42.102.154/32
 
 Resources:
   # Closed IPset for CloudFront

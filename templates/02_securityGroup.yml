@@ -117,6 +117,9 @@ Resources:
         - IpProtocol: -1
           CidrIp: 122.221.102.154/32
           Description: Fukuoka Office
+        - IpProtocol: -1
+          CidrIp: 113.42.102.154/32
+          Description: Fukuoka Office New
       Tags:
       - Key: Name
         Value: !Sub ${ServiceName}-${ENV}-play-office-sg
