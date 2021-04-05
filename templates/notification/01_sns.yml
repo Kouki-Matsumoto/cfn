@@ -46,8 +46,25 @@ Resources:
         - Key: Project
           Value: !Ref ServiceName
 
+  # CloudWatch Alarm用 SNS Topic
+  CostAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ServiceName}-${ENV}-cost-alarm-sns-topic
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-cost-alarm-sns-topic
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+
 Outputs:
   CloudWatchAlarmTopicArn:
     Value: !Ref CloudWatchAlarmTopic
     Export:
       Name: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+  CostAlarmTopicArn:
+    Value: !Ref CostAlarmTopic
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-cost-alarm-topic
