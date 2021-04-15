@@ -66,6 +66,15 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ECSTaskDesiredCountGreen must match 0 ~ 50
     Description: Enter number of ECS task green desired count, like 「1」
 
+  # ECS Task TargetTracking
+  ECSTargetTracking:
+    Type: Number
+    MinValue: 0.0
+    MaxValue: 100.0
+    Default: 50.0
+    ConstraintDescription: Malformed input-Parameter ECSTargetTracking must match 0.0 ~ 100.0
+    Description: Enter number of ECS task blue target tracking, like 「25.0」
+
   # ECS TaskDefinition CPU
   ECSTaskDefinitionCPU:
     Type: Number
@@ -493,7 +502,7 @@ Resources:
       ScalingTargetId: !Ref AutoScalingTargetBlue
       PolicyType: TargetTrackingScaling
       TargetTrackingScalingPolicyConfiguration:
-        TargetValue: 50.0
+        TargetValue: !Ref ECSTargetTracking
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         ScaleOutCooldown: 60
@@ -508,7 +517,7 @@ Resources:
       ScalingTargetId: !Ref AutoScalingTargetGreen
       PolicyType: TargetTrackingScaling
       TargetTrackingScalingPolicyConfiguration:
-        TargetValue: 50.0
+        TargetValue: !Ref ECSTargetTracking
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         ScaleOutCooldown: 60
