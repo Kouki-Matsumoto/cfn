@@ -1,5 +1,7 @@
 ## 修正概要 
-<span style="color: green"> </span>
+
+<span style="color: green"></span>
+
 ---
 ## サブシステム相関
 * 
