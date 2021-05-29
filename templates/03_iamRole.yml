@@ -161,6 +161,20 @@ Resources:
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/ElasticLoadBalancingReadOnly'
+
+  S3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-s3-full-access
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
 Outputs:
   ECSTaskExecutionRoleARN:
     Value: !GetAtt  ECSTaskExecutionRole.Arn
@@ -194,3 +208,7 @@ Outputs:
     Value: !GetAtt  ECSTaskRoleForDDBAndS3.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-ddb-s3-role
+  S3AccessRole:
+    Value: !GetAtt  S3AccessRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-s3-access-role

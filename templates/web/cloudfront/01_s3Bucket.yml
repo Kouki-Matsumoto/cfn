@@ -86,6 +86,34 @@ Resources:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-sorry-pages-identity
 
+  # Stores on S3 Bucket
+  StoresBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-stores-bucket-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-stores-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      MetricsConfigurations:
+        - Id: !Sub ${ServiceName}-${ENV}-stores-metrics-all
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-stores-bucket-${AWS::Region}
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+
   # Sitemap S3Bucket
   SitemapBucket:
     Type: AWS::S3::Bucket
@@ -161,6 +189,18 @@ Outputs:
     Value: !Ref SorryPagesBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
+  StoresBucketName:
+    Value: !Ref StoresBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket
+  StoresBucketArn:
+    Value: !GetAtt 'StoresBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket-arn
+  StoresBucketDomainName:
+    Value: !GetAtt 'StoresBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket-domain
   SitemapBucketName:
     Value: !Ref SitemapBucket
     Export:

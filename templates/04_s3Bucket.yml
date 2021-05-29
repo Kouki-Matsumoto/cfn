@@ -14,13 +14,20 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
     Description: Enter service name, like 「play-store」
 
+  StoresBucketReplicationName:
+    Type: String
+    Description: Enter service name, like 「pvs-stg-stores-bucket-us」
+
+Conditions:
+  hasStoresBucketReplicationName: !Not [!Equals [!Ref StoresBucketReplicationName, '']]
+
 Resources:
   # ALB Logs on S3 Bucket
   ALBLogsBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     Properties:
-      BucketName: !Sub '${ServiceName}-${ENV}-alb-logs-bucket'
+      BucketName: !Sub ${ServiceName}-${ENV}-alb-logs-bucket
       LifecycleConfiguration:
         Rules:
           - Id: S3LifecycleRule
@@ -31,6 +38,13 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-alb-logs-bucket
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
 
   # Bucket Policy for ALB Logs Bucket
   ALBLogsBucketPolicy:
@@ -70,7 +84,7 @@ Resources:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     Properties:
-      BucketName: !Sub '${ServiceName}-${ENV}-config-files'
+      BucketName: !Sub ${ServiceName}-${ENV}-config-files
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -78,6 +92,74 @@ Resources:
         RestrictPublicBuckets: true
       VersioningConfiguration:
         Status: Enabled
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-config-files
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # Stores on S3 Bucket
+  StoresBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-stores-bucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-stores-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      ReplicationConfiguration: !If
+        - hasStoresBucketReplicationName
+        - Role:
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-s3-access-role
+          Rules:
+            - Destination:
+                Bucket: !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref StoresBucketReplicationName
+              Id: !Sub ${ServiceName}-${ENV}-stores-bucket-us-replication
+              Status: Enabled
+        - !Ref AWS::NoValue
+      MetricsConfigurations:
+        - Id: !Sub ${ServiceName}-${ENV}-stores-metrics-all
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-stores-bucket
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # Stores Bucket Origin Access Identity
+  StoresBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-stores-bucket-identity
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  StoresBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StoresBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${StoresBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoresBucketOriginAccessIdentity}
 
 Outputs:
   ALBLogsBucketName:
@@ -104,3 +186,19 @@ Outputs:
     Value: !GetAtt 'ConfigBucket.DomainName'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-config-logs-domain
+  StoresBucketName:
+    Value: !Ref StoresBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket
+  StoresBucketArn:
+    Value: !GetAtt 'StoresBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket-arn
+  StoresBucketDomainName:
+    Value: !GetAtt 'StoresBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket-domain
+  StoresBucketOriginAccessIdentity:
+    Value: !Ref StoresBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
