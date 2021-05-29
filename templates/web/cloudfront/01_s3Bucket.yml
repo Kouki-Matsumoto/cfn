@@ -86,6 +86,52 @@ Resources:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-sorry-pages-identity
 
+  # Sitemap S3Bucket
+  SitemapBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-sitemap-bucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-sitemap-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-sitemap-bucket
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  SitemapBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SitemapBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${SitemapBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SitemapBucketOriginAccessIdentity}
+
+  # SitemapBucket Origin Access Identity
+  SitemapBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-sitemap-identity
+
 Outputs:
   CFLogsBucketName:
     Value: !Ref CFLogsBucket
@@ -115,3 +161,19 @@ Outputs:
     Value: !Ref SorryPagesBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
+  SitemapBucketName:
+    Value: !Ref SitemapBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sitemap-bucket
+  SitemapBucketArn:
+    Value: !GetAtt 'SitemapBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sitemap-arn
+  SitemapBucketDomainName:
+    Value: !GetAtt 'SitemapBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sitemap-domain
+  SitemapBucketOAI:
+    Value: !Ref SitemapBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sitemap-oai

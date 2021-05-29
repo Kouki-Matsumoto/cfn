@@ -113,10 +113,15 @@ Resources:
               - HeaderName: x-pre-shared-key
                 HeaderValue: !Ref SystemName
           ## Origin for Sitemap
-          - DomainName: !GetAtt 'SitemapBucket.DomainName'
+          - DomainName:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sitemap-domain
             Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sitemap
+            OriginPath: !Sub /${CustomerName}
             S3OriginConfig:
-              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${SitemapBucketOriginAccessIdentity}
+              OriginAccessIdentity: !Join
+                - ''
+                - - origin-access-identity/cloudfront/
+                  - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sitemap-oai
           ## Origin for Error pages
           - DomainName: !GetAtt 'ErrorPagesBucket.DomainName'
             Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-error-pages
@@ -427,49 +432,6 @@ Resources:
         HostedZoneId: Z2FDTNDATAQYW2
 
 ####################################### S3 ############################################
-
-  # Sitemap S3Bucket
-  SitemapBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-    Properties:
-      BucketName: !Sub ${ServiceName}-${ENV}-${SystemName}-sitemap-bucket
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      Tags:
-        - Key: Name
-          Value: !Sub ${SystemName}-${ENV}-sitemap-bucket
-        - Key: ENV
-          Value: !Ref ENV
-        - Key: Project
-          Value: !Ref ServiceName
-        - Key: SystemName
-          Value: !Ref SystemName
-        - Key: ProjectId
-          Value: !Ref CustomerName
-
-  # S3Bucket Policy To Allow Access From CloudFront OAI
-  SitemapBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref SitemapBucket
-      PolicyDocument:
-        Statement:
-          - Action: s3:GetObject
-            Effect: Allow
-            Resource: !Sub arn:aws:s3:::${SitemapBucket}/*
-            Principal:
-              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SitemapBucketOriginAccessIdentity}
-
-  # Sitemap Origin Access Identity
-  SitemapBucketOriginAccessIdentity:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub ${ServiceName}-${ENV}-${SystemName}-sitemap-identity
 
   # Error Pages S3Bucket
   ErrorPagesBucket:
