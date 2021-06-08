@@ -151,10 +151,12 @@ Resources:
             Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-error-pages
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${ErrorPagesBucketOriginAccessIdentity}
+
           ## Origin for Sorry pages
           - DomainName:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-domain
             Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
+            OriginPath: !Sub /${ProjectId}
             S3OriginConfig:
               OriginAccessIdentity: !Join
                 - ''

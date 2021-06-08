@@ -40,52 +40,6 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
-  # Sorry Pages S3Bucket
-  SorryPagesBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-    Properties:
-      BucketName: !Sub ${ServiceName}-${ENV}-sorry-pages-bucket
-      LifecycleConfiguration:
-        Rules:
-          - Id: !Sub ${ServiceName}-${ENV}-sorry-pages-lifecycle
-            Status: Enabled
-            NoncurrentVersionExpirationInDays: 30
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      VersioningConfiguration:
-        Status: Enabled
-      Tags:
-        - Key: Name
-          Value: !Sub ${ServiceName}-${ENV}-sorry-pages-bucket
-        - Key: ENV
-          Value: !Ref ENV
-        - Key: Project
-          Value: !Ref ServiceName
-
-  # S3Bucket Policy To Allow Access From CloudFront OAI
-  SorryPagesBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref SorryPagesBucket
-      PolicyDocument:
-        Statement:
-          - Action: s3:GetObject
-            Effect: Allow
-            Resource: !Sub arn:aws:s3:::${SorryPagesBucket}/*
-            Principal:
-              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SorryPagesBucketOriginAccessIdentity}
-
-  # Sorry Pages Origin Access Identity
-  SorryPagesBucketOriginAccessIdentity:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub ${ServiceName}-${ENV}-sorry-pages-identity
-
   # Stores on S3 Bucket
   StoresBucket:
     Type: AWS::S3::Bucket
@@ -160,6 +114,52 @@ Resources:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-sitemap-identity
 
+  # Sorry Pages on S3 Bucket
+  SorryPagesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-sorry-pages-bucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-stores-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-sorry-pages-bucket
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+
+  # Stores Bucket Origin Access Identity
+  SorryPagesBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-sorry-pages-identity
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  SorryPagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SorryPagesBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${SorryPagesBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SorryPagesBucketOriginAccessIdentity}
+
 Outputs:
   CFLogsBucketName:
     Value: !Ref CFLogsBucket
@@ -173,22 +173,6 @@ Outputs:
     Value: !GetAtt 'CFLogsBucket.DomainName'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-cf-logs-domain
-  SorryPagesBucketName:
-    Value: !Ref SorryPagesBucket
-    Export:
-      Name: !Sub ${ServiceName}-${ENV}-sorry-pages-bucket
-  SorryPagesBucketArn:
-    Value: !GetAtt 'SorryPagesBucket.Arn'
-    Export:
-      Name: !Sub ${ServiceName}-${ENV}-sorry-pages-arn
-  SorryPagesBucketDomainName:
-    Value: !GetAtt 'SorryPagesBucket.DomainName'
-    Export:
-      Name: !Sub ${ServiceName}-${ENV}-sorry-pages-domain
-  SorryPagesBucketOAI:
-    Value: !Ref SorryPagesBucketOriginAccessIdentity
-    Export:
-      Name: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
   StoresBucketName:
     Value: !Ref StoresBucket
     Export:
@@ -217,3 +201,19 @@ Outputs:
     Value: !Ref SitemapBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sitemap-oai
+  SorryPagesBucketName:
+    Value: !Ref SorryPagesBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sorry-pages
+  SorryPagesBucketArn:
+    Value: !GetAtt 'SorryPagesBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sorry-pages-arn
+  SorryPagesBucketDomainName:
+    Value: !GetAtt 'SorryPagesBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sorry-pages-domain
+  SorryPagesBucketOriginAccessIdentity:
+    Value: !Ref SorryPagesBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
