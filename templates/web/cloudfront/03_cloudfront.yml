@@ -22,11 +22,11 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
     Description: Enter service name, like 「web」
 
-  #事業者名
-  CustomerName:
+  # Project ID
+  ProjectId:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    ConstraintDescription: Malformed input-Parameter CustomerName must match pattern [a-z0-9-]+
+    ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-]+
     Description: Enter service name, like 「tipness」
 
   # SSL ACM ARN
@@ -43,12 +43,19 @@ Parameters:
     Description: Enter ALB domain name, like 「web-stg-alb-xxxxxxxx.ap-northeast-1.elb.amazonaws.com」
     MinLength: 1
 
-  # Distribution DomainName
-  DistributionDomainName:
+  # Distribution Domain Name
+  DomainName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter DomainName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「pgachampionship」
+
+  # Distribution Customer Domain Name
+  CustomerDomain:
     Type: String
     AllowedPattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
     ConstraintDescription: Malformed input-Parameter DistributionCname must match pattern ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
-    Description: Enter Distribution DistributionDomainName, like 「xxxxx.stores.play.jp」
+    Description: Enter Distribution CustomerDomain, like 「xxxxx.stores.play.jp」
 
   # Attach WebACL
   AttachWebACL:
@@ -62,7 +69,7 @@ Parameters:
     Type: String
     AllowedPattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
     ConstraintDescription: Malformed input-Parameter DistributionCname must match pattern ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
-    Description: Enter Distribution DistributionDomainName, like 「xxxxx..s3.amazonaws.com」
+    Description: Enter Distribution CustomerStaticPagesBucketDomainName, like 「xxxxx..s3.amazonaws.com」
 
   # Stores Bucket OAI
   StoresBucketOAI:
@@ -73,7 +80,8 @@ Parameters:
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
   hasWebACL: !Equals [!Ref AttachWebACL, 'true']
-  hasNotDomainName: !Equals [!Ref DistributionDomainName, '']
+  hasNotDomainName: !Equals [!Ref DomainName, '']
+  hasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
   hasCustomerStaticPagesBucketDomainName: !Not [!Equals [!Ref CustomerStaticPagesBucketDomainName, '']]
   hasNotCustomerStaticPagesBucketDomainName: !Not [Condition: hasCustomerStaticPagesBucketDomainName]
   hasStoresBucketOAI: !Not [!Equals [!Ref StoresBucketOAI, '']]
@@ -94,12 +102,21 @@ Resources:
             - ''
             - - !If [isProd, '', !Sub '${ENV}-']
               - !If
-                - hasNotDomainName
-                - !Join
-                  - ''
-                  - - !Ref CustomerName
-                    - '.stores.play.jp'
-                - !Ref DistributionDomainName
+                # CustomerDomainの指定が無い場合、次の判定に進む
+                - hasNotCustomerDomain
+                - !If
+                  # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
+                  - hasNotDomainName
+                  - !Join
+                    - ''
+                    - - !Ref ProjectId
+                      - '.stores.play.jp'
+                  - !Join
+                    - ''
+                    - - !Ref DomainName
+                      - '.stores.play.jp'
+                # CustomerDomainの指定がある場合、CustomerDomainをCNAMEに使用する
+                - !Ref CustomerDomain
         ### Origins
         Origins:
           ## Origin for ALB
@@ -122,8 +139,8 @@ Resources:
           ## Origin for Sitemap
           - DomainName:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sitemap-domain
-            Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sitemap
-            OriginPath: !Sub /${CustomerName}
+            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sitemap
+            OriginPath: !Sub /${ProjectId}
             S3OriginConfig:
               OriginAccessIdentity: !Join
                 - ''
@@ -131,13 +148,13 @@ Resources:
                   - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sitemap-oai
           ## Origin for Error pages
           - DomainName: !GetAtt 'ErrorPagesBucket.DomainName'
-            Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-error-pages
+            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-error-pages
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${ErrorPagesBucketOriginAccessIdentity}
           ## Origin for Sorry pages
           - DomainName:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-domain
-            Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sorry-pages
+            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
             S3OriginConfig:
               OriginAccessIdentity: !Join
                 - ''
@@ -151,8 +168,8 @@ Resources:
               - ''
               - - !If [isProd, 'play-store', !Sub 'pvs']
                 - !Sub -${ENV}-stores-bucket.s3.amazonaws.com
-              Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-stores
-              OriginPath: !Sub /web/${CustomerName}
+              Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
+              OriginPath: !Sub /web/${ProjectId}
               S3OriginConfig:
                 OriginAccessIdentity: !Join
                   - ''
@@ -164,11 +181,11 @@ Resources:
           - !If
             - hasCustomerStaticPagesBucketDomainName
             - DomainName: !Ref CustomerStaticPagesBucketDomainName
-              Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               S3OriginConfig:
                 OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CustomerStaticPagesBucketOriginAccessIdentity}
             - DomainName: !GetAtt  StaticPagesBucket.DomainName
-              Id: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+              Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               S3OriginConfig:
                 OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CustomerStaticPagesBucketOriginAccessIdentity}
 
@@ -198,7 +215,7 @@ Resources:
         ### Behaviors
         CacheBehaviors:
           ## sitemap
-          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sitemap
+          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sitemap
             PathPattern: /sitemap.xml
             AllowedMethods:
               - GET
@@ -216,7 +233,7 @@ Resources:
           ## json for static pages
           - !If
             - hasCustomerStaticPagesBucketDomainName
-            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /json/*
               AllowedMethods:
                 - GET
@@ -235,7 +252,7 @@ Resources:
           ## news for static pages
           - !If
             - hasCustomerStaticPagesBucketDomainName
-            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /news/*
               AllowedMethods:
                 - GET
@@ -254,7 +271,7 @@ Resources:
           ## about for static pages
           - !If
             - hasCustomerStaticPagesBucketDomainName
-            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /about/*
               AllowedMethods:
                 - GET
@@ -273,7 +290,7 @@ Resources:
           ## help for static pages
           - !If
             - hasCustomerStaticPagesBucketDomainName
-            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /help/*
               AllowedMethods:
                 - GET
@@ -292,7 +309,7 @@ Resources:
           ## resources for static pages
           - !If
             - hasCustomerStaticPagesBucketDomainName
-            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /resources/*
               AllowedMethods:
                 - GET
@@ -311,7 +328,7 @@ Resources:
           ## lp for static pages
           - !If
             - hasCustomerStaticPagesBucketDomainName
-            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-customer-static-pages
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /lp/*
               AllowedMethods:
                 - GET
@@ -328,7 +345,7 @@ Resources:
             - !Ref 'AWS::NoValue'
 
           ## sorry pages
-          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${CustomerName}-sorry-pages
+          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
             PathPattern: /sorry/*
             AllowedMethods:
               - GET
@@ -346,7 +363,7 @@ Resources:
           ## stores images
           - !If
             - hasStoresBucketOAI
-            - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${CustomerName}-stores
+            - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
               PathPattern: /imgs/*
               AllowedMethods:
                 - GET
@@ -421,7 +438,7 @@ Resources:
             - ''
             - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-logs-bucket
               - '.s3.amazonaws.com'
-          Prefix: !Sub web/${CustomerName}/
+          Prefix: !Sub web/${ProjectId}/
         WebACLId: !If
             - hasWebACL
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
@@ -436,7 +453,7 @@ Resources:
         - Key: SystemName
           Value: !Ref SystemName
         - Key: ProjectId
-          Value: !Ref CustomerName
+          Value: !Ref ProjectId
 
 ####################################### Route53 ############################################
 
@@ -458,17 +475,24 @@ Resources:
   CFRecord:
     Type: AWS::Route53::RecordSet
     # 先方ドメインを使用するしないに関わらずRoute53にレコードを作成する
-    # Condition: hasNotDomainName
+    # Condition: hasNotCustomerDomain
     DependsOn: WebDistribution
     Properties:
       HostedZoneName: 'stores.play.jp.'
       Name: !Join
         - ''
         - - !If [isProd, '', !Sub '${ENV}-']
-          - !Join
-            - ''
-            - - !Ref CustomerName
-              - '.stores.play.jp'
+          - !If
+            # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
+            - hasNotDomainName
+            - !Join
+              - ''
+              - - !Ref ProjectId
+                - '.stores.play.jp'
+            - !Join
+              - ''
+              - - !Ref DomainName
+                - '.stores.play.jp'
       Type: A
       AliasTarget:
         DNSName: !GetAtt 'WebDistribution.DomainName'
@@ -497,7 +521,7 @@ Resources:
         - Key: SystemName
           Value: !Ref SystemName
         - Key: ProjectId
-          Value: !Ref CustomerName
+          Value: !Ref ProjectId
 
   # S3Bucket Policy To Allow Access From CloudFront OAI
   ErrorPagesBucketPolicy:
@@ -548,7 +572,7 @@ Resources:
         - Key: SystemName
           Value: !Ref SystemName
         - Key: ProjectId
-          Value: !Ref CustomerName
+          Value: !Ref ProjectId
 
   # S3Bucket Policy To Allow Access From CloudFront OAI
   StaticPagesBucketPolicy:
