@@ -68,6 +68,26 @@ Resources:
         - Key: Project
           Value: !Ref ServiceName
 
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  StoresBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StoresBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${StoresBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoresBucketOriginAccessIdentity}
+
+  # StoresBucket Origin Access Identity
+  StoresBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-stores-bucket-identity
+
   # Sitemap S3Bucket
   SitemapBucket:
     Type: AWS::S3::Bucket
@@ -185,6 +205,10 @@ Outputs:
     Value: !GetAtt 'StoresBucket.DomainName'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-stores-bucket-domain
+  StoresBucketOAI:
+    Value: !Ref StoresBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
   SitemapBucketName:
     Value: !Ref SitemapBucket
     Export:

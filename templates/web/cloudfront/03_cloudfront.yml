@@ -71,12 +71,6 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter DistributionCname must match pattern ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
     Description: Enter Distribution CustomerStaticPagesBucketDomainName, like 「xxxxx..s3.amazonaws.com」
 
-  # Stores Bucket OAI
-  StoresBucketOAI:
-    Type: String
-    MaxLength: 15
-    ConstraintDescription: Enter CloudFront Origin AccessIdentity, like 「E2OI33LMYZ71DI」
-
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
   hasWebACL: !Equals [!Ref AttachWebACL, 'true']
@@ -84,7 +78,6 @@ Conditions:
   hasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
   hasCustomerStaticPagesBucketDomainName: !Not [!Equals [!Ref CustomerStaticPagesBucketDomainName, '']]
   hasNotCustomerStaticPagesBucketDomainName: !Not [Condition: hasCustomerStaticPagesBucketDomainName]
-  hasStoresBucketOAI: !Not [!Equals [!Ref StoresBucketOAI, '']]
 
 Resources:
 
@@ -163,21 +156,16 @@ Resources:
                 - - origin-access-identity/cloudfront/
                   - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
 
-          ## Origin for Stores Bucket ※！PVS専用の固定値を使用しているので注意
-          - !If
-            - hasStoresBucketOAI
-            - DomainName: !Join
-              - ''
-              - - !If [isProd, 'play-store', !Sub 'pvs']
-                - !Sub -${ENV}-stores-bucket.s3.amazonaws.com
-              Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
-              OriginPath: !Sub /web/${ProjectId}
-              S3OriginConfig:
-                OriginAccessIdentity: !Join
-                  - ''
-                  - - origin-access-identity/cloudfront/
-                    - !Ref StoresBucketOAI
-            - !Ref 'AWS::NoValue'
+          ## Origin for STORES Bucket
+          - DomainName:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-bucket-domain
+            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
+            OriginPath: !Sub /web/${ProjectId}
+            S3OriginConfig:
+              OriginAccessIdentity: !Join
+                - ''
+                - - origin-access-identity/cloudfront/
+                  - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
 
           ## Origin for Customer Static Pages
           - !If
@@ -363,23 +351,20 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
 
           ## stores images
-          - !If
-            - hasStoresBucketOAI
-            - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
-              PathPattern: /imgs/*
-              AllowedMethods:
-                - GET
-                - HEAD
-              CachedMethods:
-                - GET
-                - HEAD
-              Compress: true
-              ViewerProtocolPolicy: redirect-to-https
-              CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
-              OriginRequestPolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
-            - !Ref 'AWS::NoValue'
+          - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
+            PathPattern: /imgs/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
 
           ## images
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
