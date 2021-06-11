@@ -615,4 +615,8 @@ Outputs:
   WebDistributionDomainName:
     Value: !GetAtt 'WebDistribution.DomainName'
     Export:
-      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-domain
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-cf-domain
+  CustomerStaticPagesBucketOAI:
+    Value: !Ref CustomerStaticPagesBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-customer-static-bucket-oai
