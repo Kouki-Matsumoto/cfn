@@ -528,6 +528,7 @@ Resources:
   #  ECS Service CPUUtilization(Public)
   CPUAlarmServiceBlue:
     Type: AWS::CloudWatch::Alarm
+    Condition: isProd
     Properties:
       AlarmName: !Join
         - ''
@@ -557,6 +558,7 @@ Resources:
 
   CPUAlarmServiceGreen:
     Type: AWS::CloudWatch::Alarm
+    Condition: isProd
     Properties:
       AlarmName: !Join
         - ''
