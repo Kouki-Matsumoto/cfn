@@ -81,24 +81,6 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ECSTaskDesiredCountGreen must match 0 ~ 50
     Description: Enter number of ECS task green desired count, like 「1」
 
-  # ECS Internal Task(Blue) Desired Count
-  ECSTaskDesiredCountInternalBlue:
-    Type: Number
-    MinValue: 0
-    MaxValue: 50
-    Default: 0
-    ConstraintDescription: Malformed input-Parameter ECSTaskDesiredCountInternalBlue must match 0 ~ 50
-    Description: Enter number of ECS internal task blue desired count, like 「1」
-
-  # ECS Internal Task(Green) Desired Count
-  ECSTaskDesiredCountInternalGreen:
-    Type: Number
-    MinValue: 0
-    MaxValue: 50
-    Default: 0
-    ConstraintDescription: Malformed input-Parameter ECSTaskDesiredCountInternalGreen must match 0 ~ 50
-    Description: Enter number of ECS internal task green desired count, like 「1」
-
   # ECS Task TargetTracking
   ECSTargetTracking:
     Type: Number
@@ -107,15 +89,6 @@ Parameters:
     Default: 50.0
     ConstraintDescription: Malformed input-Parameter ECSTargetTracking must match 0.0 ~ 100.0
     Description: Enter number of ECS task blue target tracking, like 「25.0」
-
-  # ECS Task TargetTracking Internal
-  ECSInternalTargetTracking:
-    Type: Number
-    MinValue: 0.0
-    MaxValue: 100.0
-    Default: 50.0
-    ConstraintDescription: Malformed input-Parameter ECSInternalTargetTracking must match 0.0 ~ 100.0
-    Description: Enter number of ECS task green target tracking, like 「25.0」
 
   # ECS TaskDefinition CPU
   ECSTaskDefinitionCPU:
@@ -131,24 +104,9 @@ Parameters:
     Default: 1024
     Description: Enter 512, 1024 or 2048 ...
 
-  # ECS Internal TaskDefinition CPU
-  ECSInternalTaskDefinitionCPU:
-    Type: Number
-    AllowedValues: [256, 512, 1024, 2048, 3072]
-    Default: 512
-    Description: Enter 512, 1024 or 2048 ...
-
-  # ECS Internal TaskDefinition Memory
-  ECSInternalTaskDefinitionMemory:
-    Type: Number
-    AllowedValues: [512, 1024, 2048, 3072, 4096]
-    Default: 1024
-    Description: Enter 512, 1024 or 2048 ...
-
 Conditions:
   isALBSchemaBoth: !Equals [!Ref ALBSchemaType, 'both']
   isProd: !Equals [!Ref ENV, prod]
-
   hasALBSchemaInternet: !Or
     - !Equals [!Ref ALBSchemaType, 'internet-facing']
     - Condition: isALBSchemaBoth
@@ -167,7 +125,9 @@ Resources:
 
 ####################################### Target Group for ALB ############################################
 
-  # Target Group (Public)
+  # ------------------------------------------------------------#
+  # Blue TargetGroup (Public)
+  # ------------------------------------------------------------#
   ALBTargetBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Condition: hasALBSchemaInternet
@@ -193,6 +153,9 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
+  # ------------------------------------------------------------#
+  # Green TargetGroup (Public)
+  # ------------------------------------------------------------#
   ALBTargetGreen:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Condition: hasALBSchemaInternet
@@ -218,7 +181,9 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
-  # Target Group (Internal)
+  # ------------------------------------------------------------#
+  # Blue TargetGroup (Internal)
+  # ------------------------------------------------------------#
   InternalALBTargetBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Condition: hasALBSchemaInternal
@@ -244,6 +209,9 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
+  # ------------------------------------------------------------#
+  # Green TargetGroup (Internal)
+  # ------------------------------------------------------------#
   InternalALBTargetGreen:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Condition: hasALBSchemaInternal
@@ -271,7 +239,9 @@ Resources:
 
 ####################################### Application Load Balancer ############################################
 
-  # PublicALB
+  # ------------------------------------------------------------#
+  # ALB (Public)
+  # ------------------------------------------------------------#
   PublicALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Condition: hasALBSchemaInternet
@@ -305,7 +275,9 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
-  # InternalALB
+  # ------------------------------------------------------------#
+  # ALB (Internal)
+  # ------------------------------------------------------------#
   InternalALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Condition: hasALBSchemaInternal
@@ -340,7 +312,9 @@ Resources:
 
 ####################################### ALB Listener ############################################
 
+  # ------------------------------------------------------------#
   # ALB Listener (Public)
+  # ------------------------------------------------------------#
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Condition: hasALBSchemaInternet
@@ -359,6 +333,9 @@ Resources:
           StatusCode: 404
           MessageBody: 'NotFound'
 
+  # ------------------------------------------------------------#
+  # ALB Blue/Green Listener Rule (Public)
+  # ------------------------------------------------------------#
   ALBBlueGreenListener:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Condition: hasALBSchemaInternet
@@ -380,6 +357,9 @@ Resources:
           - TargetGroupArn: !Ref ALBTargetGreen
             Weight: 0
 
+  # ------------------------------------------------------------#
+  # ALB HTTP Listener (Public)
+  # ------------------------------------------------------------#
   ALBNoSSLRedirectListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Condition: hasALBSchemaInternet
@@ -397,7 +377,9 @@ Resources:
           Query: '#{query}'
           StatusCode: HTTP_301
 
+  # ------------------------------------------------------------#
   # ALB Listener (Internal)
+  # ------------------------------------------------------------#
   InternalALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Condition: hasALBSchemaInternal
@@ -412,6 +394,9 @@ Resources:
           StatusCode: 404
           MessageBody: 'NotFound'
 
+  # ------------------------------------------------------------#
+  # ALB Blue/Green Listener Rule (Internal)
+  # ------------------------------------------------------------#
   InternalALBBlueGreenListener:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Condition: hasALBSchemaInternal
@@ -433,9 +418,20 @@ Resources:
           - TargetGroupArn: !Ref InternalALBTargetGreen
             Weight: 0
 
+  # ------------------------------------------------------------#
+  # ALB Listener WaitConditionHandle
+  # ------------------------------------------------------------#
+  ALBListenerReady:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Metadata:
+      ALBBlueGreenListener: !If [ hasALBSchemaInternet, !Ref ALBBlueGreenListener, "" ]
+      InternalALBBlueGreenListener: !If [ hasALBSchemaInternal, !Ref InternalALBBlueGreenListener, "" ]
+
 ####################################### ECR ############################################
 
-  # Repository
+  # ------------------------------------------------------------#
+  # ECR
+  # ------------------------------------------------------------#
   ECR:
     Type: AWS::ECR::Repository
     Properties:
@@ -452,7 +448,9 @@ Resources:
 
 ####################################### ECS ############################################
 
+  # ------------------------------------------------------------#
   # ECS Cluster
+  # ------------------------------------------------------------#
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
@@ -470,10 +468,11 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
-  # ECS Task Definitions (Public)
+  # ------------------------------------------------------------#
+  # ECS Blue TaskDefinition
+  # ------------------------------------------------------------#
   ECSTaskDefinitionBlue:
     Type: AWS::ECS::TaskDefinition
-    Condition: hasALBSchemaInternet
     Properties:
       Family: !Sub ${SystemName}-${ENV}-blue
       RequiresCompatibilities:
@@ -515,9 +514,11 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
+  # ------------------------------------------------------------#
+  # ECS Green TaskDefinition
+  # ------------------------------------------------------------#
   ECSTaskDefinitionGreen:
     Type: AWS::ECS::TaskDefinition
-    Condition: hasALBSchemaInternet
     Properties:
       Family: !Sub ${SystemName}-${ENV}-green
       RequiresCompatibilities:
@@ -559,111 +560,32 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
-  # ECS Task Definitions (Internal)
-  ECSInternalTaskDefinitionBlue:
-    Type: AWS::ECS::TaskDefinition
-    Condition: hasALBSchemaInternal
-    Properties:
-      Family: !Sub ${SystemName}-${ENV}-i-blue
-      RequiresCompatibilities:
-        - FARGATE
-      NetworkMode: awsvpc
-      Cpu: !Ref ECSInternalTaskDefinitionCPU
-      Memory: !Ref ECSInternalTaskDefinitionMemory
-      ExecutionRoleArn:
-        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
-      TaskRoleArn:
-        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
-      ContainerDefinitions:
-        - Name: !Sub ${SystemName}-${ENV}-i-blue
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue
-          PortMappings:
-          - ContainerPort: !Ref ContainerPort
-            HostPort: !Ref ContainerPort
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-create-group: true
-              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}-i"
-              awslogs-region: ap-northeast-1
-              awslogs-stream-prefix: ecs
-          Environment:
-            - !If
-              - hasConfigBucketInternal
-              - Name: 'CONFIG_BUCKET'
-                Value:
-                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
-              - !Ref 'AWS::NoValue'
-      Tags:
-      - Key: Name
-        Value: !Sub ${SystemName}-${ENV}-i-blue-task-definition
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
-      - Key: SystemName
-        Value: !Ref SystemName
-
-  ECSInternalTaskDefinitionGreen:
-    Type: AWS::ECS::TaskDefinition
-    Condition: hasALBSchemaInternal
-    Properties:
-      Family: !Sub ${SystemName}-${ENV}-i-green
-      RequiresCompatibilities:
-        - FARGATE
-      NetworkMode: awsvpc
-      Cpu: !Ref ECSInternalTaskDefinitionCPU
-      Memory: !Ref ECSInternalTaskDefinitionMemory
-      ExecutionRoleArn:
-        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ecs-task-execution-role-arn
-      TaskRoleArn:
-        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
-      ContainerDefinitions:
-        - Name: !Sub ${SystemName}-${ENV}-i-green
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green
-          PortMappings:
-          - ContainerPort: !Ref ContainerPort
-            HostPort: !Ref ContainerPort
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-create-group: true
-              awslogs-group: !Sub "/ecs/${SystemName}-${ENV}-i"
-              awslogs-region: ap-northeast-1
-              awslogs-stream-prefix: ecs
-          Environment:
-            - !If
-              - hasConfigBucketInternal
-              - Name: 'CONFIG_BUCKET'
-                Value:
-                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
-              - !Ref 'AWS::NoValue'
-      Tags:
-      - Key: Name
-        Value: !Sub ${SystemName}-${ENV}-green-task-definition
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
-      - Key: SystemName
-        Value: !Ref SystemName
-
-  # ECS Service (Public)
+  # ------------------------------------------------------------#
+  # ECS Blue Service
+  # ------------------------------------------------------------#
   ECSServiceBlue:
     Type: AWS::ECS::Service
-    Condition: hasALBSchemaInternet
     DependsOn:
-      - ALBBlueGreenListener
+      - ALBListenerReady
       - ECSTaskDefinitionBlue
     Properties:
-      ServiceName: !Sub ${SystemName}-${ENV}-blue
+      ServiceName: !Sub ${SystemName}-${ENV}-${ALBSchemaType}-blue
       Cluster: !Ref ECSCluster
       DesiredCount: !Ref ECSTaskDesiredCountBlue
       LaunchType: FARGATE
       LoadBalancers:
-        - ContainerName: !Sub ${SystemName}-${ENV}-blue
-          ContainerPort: !Ref ContainerPort
-          TargetGroupArn: !Ref ALBTargetBlue
+        - !If
+          - hasALBSchemaInternet
+          - ContainerName: !Sub ${SystemName}-${ENV}-blue
+            ContainerPort: !Ref ContainerPort
+            TargetGroupArn: !Ref ALBTargetBlue
+          - !Ref 'AWS::NoValue'
+        - !If
+          - hasALBSchemaInternal
+          - ContainerName: !Sub ${SystemName}-${ENV}-blue
+            ContainerPort: !Ref ContainerPort
+            TargetGroupArn: !Ref InternalALBTargetBlue
+          - !Ref 'AWS::NoValue'
       TaskDefinition: !Ref ECSTaskDefinitionBlue
       NetworkConfiguration:
         AwsvpcConfiguration:
@@ -683,21 +605,32 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
+  # ------------------------------------------------------------#
+  # ECS Green Service
+  # ------------------------------------------------------------#
   ECSServiceGreen:
     Type: AWS::ECS::Service
-    Condition: hasALBSchemaInternet
     DependsOn:
-      - ALBBlueGreenListener
+      - ALBListenerReady
       - ECSTaskDefinitionGreen
     Properties:
-      ServiceName: !Sub ${SystemName}-${ENV}-green
+      ServiceName: !Sub ${SystemName}-${ENV}-${ALBSchemaType}-green
       Cluster: !Ref ECSCluster
       DesiredCount: !Ref ECSTaskDesiredCountGreen
       LaunchType: FARGATE
       LoadBalancers:
-        - ContainerName: !Sub ${SystemName}-${ENV}-green
-          ContainerPort: !Ref ContainerPort
-          TargetGroupArn: !Ref ALBTargetGreen
+        - !If
+          - hasALBSchemaInternet
+          - ContainerName: !Sub ${SystemName}-${ENV}-green
+            ContainerPort: !Ref ContainerPort
+            TargetGroupArn: !Ref ALBTargetGreen
+          - !Ref 'AWS::NoValue'
+        - !If
+          - hasALBSchemaInternal
+          - ContainerName: !Sub ${SystemName}-${ENV}-green
+            ContainerPort: !Ref ContainerPort
+            TargetGroupArn: !Ref InternalALBTargetGreen
+          - !Ref 'AWS::NoValue'
       TaskDefinition: !Ref ECSTaskDefinitionGreen
       NetworkConfiguration:
         AwsvpcConfiguration:
@@ -717,81 +650,13 @@ Resources:
       - Key: SystemName
         Value: !Ref SystemName
 
-  # ECS Service (Internal)
-  ECSInternalServiceBlue:
-    Type: AWS::ECS::Service
-    Condition: hasALBSchemaInternal
-    DependsOn:
-      - InternalALBBlueGreenListener
-      - ECSInternalTaskDefinitionBlue
-    Properties:
-      ServiceName: !Sub ${SystemName}-${ENV}-i-blue
-      Cluster: !Ref ECSCluster
-      DesiredCount: !Ref ECSTaskDesiredCountInternalBlue
-      LaunchType: FARGATE
-      LoadBalancers:
-        - ContainerName: !Sub ${SystemName}-${ENV}-i-blue
-          ContainerPort: !Ref ContainerPort
-          TargetGroupArn: !Ref InternalALBTargetBlue
-      TaskDefinition: !Ref ECSInternalTaskDefinitionBlue
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          Subnets:
-            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-a
-            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-c
-            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-d
-          SecurityGroups:
-            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
-      Tags:
-      - Key: Name
-        Value: !Sub ${SystemName}-${ENV}-i-blue-service
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
-      - Key: SystemName
-        Value: !Ref SystemName
-
-  ECSInternalServiceGreen:
-    Type: AWS::ECS::Service
-    Condition: hasALBSchemaInternal
-    DependsOn:
-      - InternalALBBlueGreenListener
-      - ECSInternalTaskDefinitionGreen
-    Properties:
-      ServiceName: !Sub ${SystemName}-${ENV}-i-green
-      Cluster: !Ref ECSCluster
-      DesiredCount: !Ref ECSTaskDesiredCountInternalGreen
-      LaunchType: FARGATE
-      LoadBalancers:
-        - ContainerName: !Sub ${SystemName}-${ENV}-i-green
-          ContainerPort: !Ref ContainerPort
-          TargetGroupArn: !Ref InternalALBTargetGreen
-      TaskDefinition: !Ref ECSInternalTaskDefinitionGreen
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          Subnets:
-            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-a
-            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-c
-            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-nat-subnet-d
-          SecurityGroups:
-            - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
-      Tags:
-      - Key: Name
-        Value: !Sub ${SystemName}-${ENV}-i-green-service
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
-      - Key: SystemName
-        Value: !Ref SystemName
-
 ####################################### AutoScaling ############################################
 
-  # ECS Service ScalableTarget (Public)
+  # ------------------------------------------------------------#
+  # ScalableTarget Blue
+  # ------------------------------------------------------------#
   AutoScalingTargetBlue:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Condition: hasALBSchemaInternet
     Properties:
       MinCapacity: !Ref ECSTaskDesiredCountBlue
       MaxCapacity: 10
@@ -804,9 +669,11 @@ Resources:
       RoleARN: !Sub
         arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
 
+  # ------------------------------------------------------------#
+  # ScalableTarget Green
+  # ------------------------------------------------------------#
   AutoScalingTargetGreen:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Condition: hasALBSchemaInternet
     Properties:
       MinCapacity: !Ref ECSTaskDesiredCountGreen
       MaxCapacity: 10
@@ -819,41 +686,11 @@ Resources:
       RoleARN: !Sub
         arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
 
-  # ECS Service ScalableTarget (Internal)
-  InternalAutoScalingTargetBlue:
-    Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Condition: hasALBSchemaInternal
-    Properties:
-      MinCapacity: !Ref ECSTaskDesiredCountInternalBlue
-      MaxCapacity: 10
-      ResourceId: !Sub
-        - 'service/${Cluster}/${Service}'
-        - Cluster: !Ref ECSCluster
-          Service: !GetAtt 'ECSInternalServiceBlue.Name'
-      ScalableDimension: ecs:service:DesiredCount
-      ServiceNamespace: ecs
-      RoleARN: !Sub
-        arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
-
-  InternalAutoScalingTargetGreen:
-    Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Condition: hasALBSchemaInternal
-    Properties:
-      MinCapacity: !Ref ECSTaskDesiredCountInternalGreen
-      MaxCapacity: 10
-      ResourceId: !Sub
-        - 'service/${Cluster}/${Service}'
-        - Cluster: !Ref ECSCluster
-          Service: !GetAtt 'ECSInternalServiceGreen.Name'
-      ScalableDimension: ecs:service:DesiredCount
-      ServiceNamespace: ecs
-      RoleARN: !Sub
-        arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
-
-  # ECS Service ScalablePolicy (Public)
+  # ------------------------------------------------------------#
+  # ScalingPolicy Blue
+  # ------------------------------------------------------------#
   AutoScallingPolicyBlue:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasALBSchemaInternet
     DependsOn:
       - ECSServiceBlue
     Properties:
@@ -867,9 +704,11 @@ Resources:
         ScaleOutCooldown: 60
         ScaleInCooldown: 60
 
+  # ------------------------------------------------------------#
+  # ScalingPolicy Green
+  # ------------------------------------------------------------#
   AutoScallingPolicyGreen:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasALBSchemaInternet
     DependsOn:
       - ECSServiceGreen
     Properties:
@@ -883,42 +722,11 @@ Resources:
         ScaleOutCooldown: 60
         ScaleInCooldown: 60
 
-  # ECS Service ScalablePolicy (Internal)
-  InternalAutoScallingPolicyBlue:
-    Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasALBSchemaInternal
-    DependsOn:
-      - ECSInternalServiceBlue
-    Properties:
-      PolicyName: !Sub ${SystemName}-${ENV}-blue-i-auto-scaling
-      ScalingTargetId: !Ref InternalAutoScalingTargetBlue
-      PolicyType: TargetTrackingScaling
-      TargetTrackingScalingPolicyConfiguration:
-        TargetValue: !Ref ECSInternalTargetTracking
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ECSServiceAverageCPUUtilization
-        ScaleOutCooldown: 60
-        ScaleInCooldown: 60
-
-  InternalAutoScallingPolicyGreen:
-    Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasALBSchemaInternal
-    DependsOn:
-      - ECSInternalServiceGreen
-    Properties:
-      PolicyName: !Sub ${SystemName}-${ENV}-green-i-auto-scaling
-      ScalingTargetId: !Ref InternalAutoScalingTargetGreen
-      PolicyType: TargetTrackingScaling
-      TargetTrackingScalingPolicyConfiguration:
-        TargetValue: !Ref ECSInternalTargetTracking
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ECSServiceAverageCPUUtilization
-        ScaleOutCooldown: 60
-        ScaleInCooldown: 60
-
 #######################################CloudWatch Alarms############################################
 
-  #  ECS Service CPUUtilization(Public)
+  # ------------------------------------------------------------#
+  # ECS Blue Service CPUUtilization Alarm
+  # ------------------------------------------------------------#
   CPUAlarmServiceBlue:
     Type: AWS::CloudWatch::Alarm
     Condition: hasALBSchemaInternet
@@ -949,6 +757,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
+  # ------------------------------------------------------------#
+  # ECS Green Service CPUUtilization Alarm
+  # ------------------------------------------------------------#
   CPUAlarmServiceGreen:
     Type: AWS::CloudWatch::Alarm
     Condition: hasALBSchemaInternet
@@ -979,68 +790,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #  ECS Service CPUUtilization(Internal)
-  CPUAlarmInternalServiceBlue:
-    Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternal
-    Properties:
-      AlarmName: !Join
-        - ''
-        - - 'CPUUtilization ['
-          - !GetAtt 'ECSInternalServiceBlue.Name'
-          - ']'
-      ActionsEnabled: true
-      Namespace: AWS/ECS
-      MetricName: CPUUtilization
-      Statistic: Average
-      Dimensions:
-        - Name: ClusterName
-          Value : !Ref ECSCluster
-        - Name: ServiceName
-          Value: !GetAtt 'ECSInternalServiceBlue.Name'
-      AlarmDescription: "ECS CPU使用率 80%"
-      Period: 300
-      Threshold: 80
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      EvaluationPeriods: 1
-      DatapointsToAlarm: 1
-      AlarmActions:
-        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
-      OKActions:
-        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
-
-  CPUAlarmInternalServiceGreen:
-    Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternal
-    Properties:
-      AlarmName: !Join
-        - ''
-        - - 'CPUUtilization ['
-          - !GetAtt 'ECSInternalServiceGreen.Name'
-          - ']'
-      ActionsEnabled: true
-      Namespace: AWS/ECS
-      MetricName: CPUUtilization
-      Statistic: Average
-      Dimensions:
-        - Name: ClusterName
-          Value : !Ref ECSCluster
-        - Name: ServiceName
-          Value: !GetAtt 'ECSInternalServiceGreen.Name'
-      AlarmDescription: "ECS CPU使用率 80%"
-      Period: 300
-      Threshold: 80
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      EvaluationPeriods: 1
-      DatapointsToAlarm: 1
-      AlarmActions:
-        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
-      OKActions:
-        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
-
-  #Public ALB 5xx
+  # ------------------------------------------------------------#
+  # ALB HTTPCode_ELB_5XX_Count Alarm (Public)
+  # ------------------------------------------------------------#
   HTTPCodePublicELB5XX:
     Type: AWS::CloudWatch::Alarm
     Condition: hasALBSchemaInternet
@@ -1049,7 +801,7 @@ Resources:
         - ''
         - - 'HTTPCode_ELB_5XX_Count ['
           - !GetAtt 'PublicALB.LoadBalancerName'
-          - ' ]'
+          - ']'
       ActionsEnabled: true
       Namespace: AWS/ApplicationELB
       MetricName: HTTPCode_ELB_5XX_Count
@@ -1069,7 +821,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #Internal ALB 5xx
+  # ------------------------------------------------------------#
+  # ALB HTTPCode_ELB_5XX_Count Alarm (Internal)
+  # ------------------------------------------------------------#
   HTTPCodeInternalELB5XX:
     Type: AWS::CloudWatch::Alarm
     Condition: hasALBSchemaInternal
@@ -1098,7 +852,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #Public TargetBlue 5xx
+  # ------------------------------------------------------------#
+  # Blue TargetGroup HTTPCode_Target_5XX_Count Alarm (Public)
+  # ------------------------------------------------------------#
   HTTPCodeTargetBlue5XX:
     Type: AWS::CloudWatch::Alarm
     Condition: hasALBSchemaInternet
@@ -1127,7 +883,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #Public TargetGreen 5xx
+  # ------------------------------------------------------------#
+  # Green TargetGroup HTTPCode_Target_5XX_Count Alarm (Public)
+  # ------------------------------------------------------------#
   HTTPCodeTargetGreen5XX:
     Type: AWS::CloudWatch::Alarm
     Condition: hasALBSchemaInternet
@@ -1156,7 +914,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #Internal TargetBlue 5xx
+  # ------------------------------------------------------------#
+  # Blue TargetGroup HTTPCode_Target_5XX_Count Alarm (Internal)
+  # ------------------------------------------------------------#
   HTTPCodeInternalTargetBlue5XX:
     Type: AWS::CloudWatch::Alarm
     Condition: hasALBSchemaInternal
@@ -1185,7 +945,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #Internal TargetGreen 5xx
+  # ------------------------------------------------------------#
+  # Green TargetGroup HTTPCode_Target_5XX_Count Alarm (Internal)
+  # ------------------------------------------------------------#
   HTTPCodeInternalTargetGreen5XX:
     Type: AWS::CloudWatch::Alarm
     Condition: hasALBSchemaInternal

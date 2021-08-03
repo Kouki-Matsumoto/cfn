@@ -105,7 +105,9 @@ Resources:
 
 ####################################### Target Group for ALB ############################################
 
-  # Target Group (Public)
+  # ------------------------------------------------------------#
+  # Blue TargetGroup
+  # ------------------------------------------------------------#
   ALBTargetBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -132,6 +134,9 @@ Resources:
       - Key: ProjectId
         Value: !Ref ProjectId
 
+  # ------------------------------------------------------------#
+  # Green TargetGroup
+  # ------------------------------------------------------------#
   ALBTargetGreen:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -160,7 +165,9 @@ Resources:
 
 ####################################### Application Load Balancer ############################################
 
-  # PublicALB
+  # ------------------------------------------------------------#
+  # ALB
+  # ------------------------------------------------------------#
   PublicALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -201,7 +208,9 @@ Resources:
 
 ####################################### ALB Listener ############################################
 
-  # ALB Listener (Public)
+  # ------------------------------------------------------------#
+  # ALB Listener
+  # ------------------------------------------------------------#
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -219,6 +228,9 @@ Resources:
           StatusCode: 404
           MessageBody: 'NotFound'
 
+  # ------------------------------------------------------------#
+  # ALB Blue/Green Listener Rule
+  # ------------------------------------------------------------#
   ALBBlueGreenListener:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     DependsOn: ALBListener
@@ -244,6 +256,9 @@ Resources:
           - TargetGroupArn: !Ref ALBTargetGreen
             Weight: 0
 
+  # ------------------------------------------------------------#
+  # ALB HTTP Listener
+  # ------------------------------------------------------------#
   ALBNoSSLRedirectListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -262,7 +277,9 @@ Resources:
 
 ####################################### ECR ############################################
 
-  # Repository
+  # ------------------------------------------------------------#
+  # ECR
+  # ------------------------------------------------------------#
   ECR:
     Type: AWS::ECR::Repository
     Properties:
@@ -281,7 +298,9 @@ Resources:
 
 ####################################### ECS ############################################
 
+  # ------------------------------------------------------------#
   # ECS Cluster
+  # ------------------------------------------------------------#
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
@@ -301,7 +320,9 @@ Resources:
       - Key: ProjectId
         Value: !Ref ProjectId
 
-  # ECS Task Definitions (Public)
+  # ------------------------------------------------------------#
+  # ECS Blue TaskDefinition
+  # ------------------------------------------------------------#
   ECSTaskDefinitionBlue:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -346,6 +367,9 @@ Resources:
       - Key: ProjectId
         Value: !Ref ProjectId
 
+  # ------------------------------------------------------------#
+  # ECS Green TaskDefinition
+  # ------------------------------------------------------------#
   ECSTaskDefinitionGreen:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -390,7 +414,9 @@ Resources:
       - Key: ProjectId
         Value: !Ref ProjectId
 
-  # ECS Service (Public)
+  # ------------------------------------------------------------#
+  # ECS Blue Service
+  # ------------------------------------------------------------#
   ECSServiceBlue:
     Type: AWS::ECS::Service
     DependsOn:
@@ -426,6 +452,9 @@ Resources:
       - Key: ProjectId
         Value: !Ref ProjectId
 
+  # ------------------------------------------------------------#
+  # ECS Green Service
+  # ------------------------------------------------------------#
   ECSServiceGreen:
     Type: AWS::ECS::Service
     DependsOn:
@@ -463,7 +492,9 @@ Resources:
 
 ####################################### AutoScaling ############################################
 
-  # ECS Service ScalableTarget (Public)
+  # ------------------------------------------------------------#
+  # ScalableTarget Blue
+  # ------------------------------------------------------------#
   AutoScalingTargetBlue:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
@@ -478,6 +509,9 @@ Resources:
       RoleARN: !Sub
         arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
 
+  # ------------------------------------------------------------#
+  # ScalableTarget Green
+  # ------------------------------------------------------------#
   AutoScalingTargetGreen:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
@@ -492,7 +526,9 @@ Resources:
       RoleARN: !Sub
         arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
 
-  # ECS Service ScalablePolicy (Public)
+  # ------------------------------------------------------------#
+  # ScalingPolicy Blue
+  # ------------------------------------------------------------#
   AutoScallingPolicyBlue:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     DependsOn:
@@ -508,6 +544,9 @@ Resources:
         ScaleOutCooldown: 60
         ScaleInCooldown: 60
 
+  # ------------------------------------------------------------#
+  # ScalingPolicy Green
+  # ------------------------------------------------------------#
   AutoScallingPolicyGreen:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     DependsOn:
@@ -525,7 +564,9 @@ Resources:
 
 #######################################CloudWatch Alarms############################################
 
-  #  ECS Service CPUUtilization(Public)
+  # ------------------------------------------------------------#
+  # ECS Blue Service CPUUtilization Alarm
+  # ------------------------------------------------------------#
   CPUAlarmServiceBlue:
     Type: AWS::CloudWatch::Alarm
     Condition: isProd
@@ -556,6 +597,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
+  # ------------------------------------------------------------#
+  # ECS Green Service CPUUtilization Alarm
+  # ------------------------------------------------------------#
   CPUAlarmServiceGreen:
     Type: AWS::CloudWatch::Alarm
     Condition: isProd
@@ -586,7 +630,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #Public ALB 5xx
+  # ------------------------------------------------------------#
+  # ALB HTTPCode_ELB_5XX_Count Alarm
+  # ------------------------------------------------------------#
   HTTPCodePublicELB5XX:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -614,7 +660,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #Public TargetBlue 5xx
+  # ------------------------------------------------------------#
+  # Blue TargetGroup HTTPCode_Target_5XX_Count Alarm
+  # ------------------------------------------------------------#
   HTTPCodeTargetBlue5XX:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -642,7 +690,9 @@ Resources:
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  #Public TargetGreen 5xx
+  # ------------------------------------------------------------#
+  # Green TargetGroup HTTPCode_Target_5XX_Count Alarm
+  # ------------------------------------------------------------#
   HTTPCodeTargetGreen5XX:
     Type: AWS::CloudWatch::Alarm
     Properties:
