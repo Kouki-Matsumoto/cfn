@@ -13,6 +13,7 @@ Parameters:
     Default: play-store
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
     Description: Enter service name, like 「play-store」
+
   # NATGatewayに紐付けるElasticIPの割り当てID。未指定だとEIPから作る
   NatIPAllocationId:
     Type: String
@@ -21,10 +22,44 @@ Parameters:
     ConstraintDescription: "Malformed input-Parameter NatIPAllocationId must match pattern ^[a-z]+-[a-z0-9]+$"
     Description: Enter ElasticIP Allocation ID, like 「eipalloc-001a5b9d6980eed9f」
 
+  # NATGatewayに紐付けるElasticIPの割り当てID。未指定だとEIPから作る (EnableNatGatwayMultiAZ=trueの場合のみ有効)
+  NatIPAllocationIdAzC:
+    Type: String
+    Default: ''
+    AllowedPattern: ^($|[a-z]+-[a-z0-9]+$)
+    ConstraintDescription: "Malformed input-Parameter NatIPAllocationId must match pattern ^[a-z]+-[a-z0-9]+$"
+    Description: Enter ElasticIP Allocation ID, like 「eipalloc-001a5b9d6980eed9f」 ※ Enable only EnableNatGatwayMultiAZ is `true`
+
+  # NATGatewayに紐付けるElasticIPの割り当てID。未指定だとEIPから作る (EnableNatGatwayMultiAZ=trueの場合のみ有効)
+  NatIPAllocationIdAzD:
+    Type: String
+    Default: ''
+    AllowedPattern: ^($|[a-z]+-[a-z0-9]+$)
+    ConstraintDescription: "Malformed input-Parameter NatIPAllocationId must match pattern ^[a-z]+-[a-z0-9]+$"
+    Description: Enter ElasticIP Allocation ID, like 「eipalloc-001a5b9d6980eed9f」※ Enable only EnableNatGatwayMultiAZ is `true`
+
+  # NATGatewayをマルチAZ構成にする
+  EnableNatGatwayMultiAZ:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
 Conditions:
+  isNatGatwayMultiAZ: !Equals [!Ref EnableNatGatwayMultiAZ, 'true']
+
   specifyNatIpAID: !Not [!Equals [!Ref NatIPAllocationId, '']]
   noSpecifyNatIpAID: !Equals [!Ref NatIPAllocationId, '']
 
+  specifyNatIpAIDAzC: !Not [!Equals [!Ref NatIPAllocationIdAzC, '']]
+  noSpecifyNatIpAIDAzC: !And
+    - !Equals [!Ref NatIPAllocationIdAzC, '']
+    - Condition: isNatGatwayMultiAZ
+
+  specifyNatIpAIDAzD: !Not [!Equals [!Ref NatIPAllocationIdAzD, '']]
+  noSpecifyNatIpAIDAzD: !And
+    - !Equals [!Ref NatIPAllocationIdAzD, '']
+    - Condition: isNatGatwayMultiAZ
 
 Mappings:
   EnvCidrBlock:
@@ -72,7 +107,12 @@ Mappings:
       subnetPublicIgwD: '10.32.44.0/22'
 
 Resources:
-  #VPC
+
+####################################### VPC ############################################
+
+  # ------------------------------------------------------------#
+  # VPC
+  # ------------------------------------------------------------#
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -87,7 +127,11 @@ Resources:
         - Key: Project
           Value: !Ref ServiceName
 
-  #Subnet
+####################################### Subnet ############################################
+
+  # ------------------------------------------------------------#
+  # Public Subnet for AZ 1a
+  # ------------------------------------------------------------#
   PublicSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -102,6 +146,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Public Subnet for AZ 1c
+  # ------------------------------------------------------------#
   PublicSubnetC:
     Type: AWS::EC2::Subnet
     Properties:
@@ -116,6 +164,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Public Subnet for AZ 1d
+  # ------------------------------------------------------------#
   PublicSubnetD:
     Type: AWS::EC2::Subnet
     Properties:
@@ -130,6 +182,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Private Subnet for AZ 1a
+  # ------------------------------------------------------------#
   PrivateSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -144,6 +200,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Private Subnet for AZ 1c
+  # ------------------------------------------------------------#
   PrivateSubnetC:
     Type: AWS::EC2::Subnet
     Properties:
@@ -158,6 +218,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Private Subnet for AZ 1d
+  # ------------------------------------------------------------#
   PrivateSubnetD:
     Type: AWS::EC2::Subnet
     Properties:
@@ -172,6 +236,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # NAT Subnet for AZ 1a
+  # ------------------------------------------------------------#
   NatSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -186,6 +254,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # NAT Subnet for AZ 1c
+  # ------------------------------------------------------------#
   NatSubnetC:
     Type: AWS::EC2::Subnet
     Properties:
@@ -200,6 +272,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # NAT Subnet for AZ 1d
+  # ------------------------------------------------------------#
   NatSubnetD:
     Type: AWS::EC2::Subnet
     Properties:
@@ -214,6 +290,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Public Internet GW Subnet for AZ 1a
+  # ------------------------------------------------------------#
   PublicIgwSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -228,6 +308,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Public Internet GW Subnet for AZ 1c
+  # ------------------------------------------------------------#
   PublicIgwSubnetC:
     Type: AWS::EC2::Subnet
     Properties:
@@ -242,6 +326,10 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Public Internet GW Subnet for AZ 1d
+  # ------------------------------------------------------------#
   PublicIgwSubnetD:
     Type: AWS::EC2::Subnet
     Properties:
@@ -257,7 +345,11 @@ Resources:
         - Key: Project
           Value: !Ref ServiceName
 
-  # RouteTable
+####################################### RouteTable ############################################
+
+  # ------------------------------------------------------------#
+  # Public RouteTable
+  # ------------------------------------------------------------#
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -269,6 +361,10 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Private RouteTable
+  # ------------------------------------------------------------#
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -280,6 +376,10 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # NAT RouteTable
+  # ------------------------------------------------------------#
   NatRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -291,6 +391,42 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # NAT RouteTable for AZ 1c
+  # ------------------------------------------------------------#
+  NatRouteTableC:
+    Type: AWS::EC2::RouteTable
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-route-table-c
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # NAT RouteTable for AZ 1d
+  # ------------------------------------------------------------#
+  NatRouteTableD:
+    Type: AWS::EC2::RouteTable
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-route-table-d
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Public Internet GW RouteTable
+  # ------------------------------------------------------------#
   PublicIgwRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -303,7 +439,43 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
-  #InternetGateway
+  # ------------------------------------------------------------#
+  # Public Internet GW RouteTable for AZ 1c
+  # ------------------------------------------------------------#
+  PublicIgwRouteTableC:
+    Type: AWS::EC2::RouteTable
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-igw-route-table-c
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # Public Internet GW RouteTable for AZ 1d
+  # ------------------------------------------------------------#
+  PublicIgwRouteTableD:
+    Type: AWS::EC2::RouteTable
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-igw-route-table-d
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+####################################### Internet Gateway ############################################
+
+  # ------------------------------------------------------------#
+  # Internet Gateway
+  # ------------------------------------------------------------#
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -314,7 +486,10 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
-  # Attach Gateway
+
+  # ------------------------------------------------------------#
+  # Internet Gateway on VPC
+  # ------------------------------------------------------------#
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     DependsOn: InternetGateway
@@ -322,7 +497,12 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # ElasticIP For NATGateway
+
+####################################### ElasticIP ############################################
+
+  # ------------------------------------------------------------#
+  # ElasticIP For NAT Gateway 1
+  # ------------------------------------------------------------#
   NatEIP:
     Type: AWS::EC2::EIP
     Condition: noSpecifyNatIpAID
@@ -335,7 +515,44 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
-  # NatGateway
+
+  # ------------------------------------------------------------#
+  # ElasticIP For NAT Gateway 2
+  # ------------------------------------------------------------#
+  NatEIP2:
+    Type: AWS::EC2::EIP
+    Condition: noSpecifyNatIpAIDAzC
+    Properties:
+      Domain: vpc
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-eip-c
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # ElasticIP For NAT Gateway 3
+  # ------------------------------------------------------------#
+  NatEIP3:
+    Type: AWS::EC2::EIP
+    Condition: noSpecifyNatIpAIDAzD
+    Properties:
+      Domain: vpc
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-eip-d
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+####################################### NAT Gateway ############################################
+
+  # ------------------------------------------------------------#
+  # NAT Gateway for AZ a
+  # ------------------------------------------------------------#
   NATGateway:
     Type: "AWS::EC2::NatGateway"
     Properties:
@@ -349,7 +566,46 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
-  # Attach public route
+  # ------------------------------------------------------------#
+  # NAT Gateway for AZ c
+  # ------------------------------------------------------------#
+  NATGatewayC:
+    Type: "AWS::EC2::NatGateway"
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      AllocationId: !If [specifyNatIpAIDAzC, !Ref NatIPAllocationIdAzC, !GetAtt NatEIP2.AllocationId]
+      SubnetId: !Ref PublicIgwSubnetC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-gw-c
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+  # ------------------------------------------------------------#
+  # NAT Gateway for AZ d
+  # ------------------------------------------------------------#
+  NATGatewayD:
+    Type: "AWS::EC2::NatGateway"
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      AllocationId: !If [specifyNatIpAIDAzD, !Ref NatIPAllocationIdAzD, !GetAtt NatEIP3.AllocationId]
+      SubnetId: !Ref PublicIgwSubnetD
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-nat-gw-d
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+
+
+####################################### Route ############################################
+
+  # ------------------------------------------------------------#
+  # Attatch Public Route
+  # ------------------------------------------------------------#
   AttachPublicRoute:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
@@ -357,6 +613,10 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
+
+  # ------------------------------------------------------------#
+  # Attatch Public Internet GW Route
+  # ------------------------------------------------------------#
   AttachPublicIgwRoute:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
@@ -364,6 +624,34 @@ Resources:
       RouteTableId: !Ref PublicIgwRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
+
+  # ------------------------------------------------------------#
+  # Attatch Public Internet GW Route for AZ 1c
+  # ------------------------------------------------------------#
+  AttachPublicIgwRouteC:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      RouteTableId: !Ref PublicIgwRouteTableC
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # ------------------------------------------------------------#
+  # Attatch Public Internet GW Route for AZ 1d
+  # ------------------------------------------------------------#
+  AttachPublicIgwRouteD:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      RouteTableId: !Ref PublicIgwRouteTableD
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # ------------------------------------------------------------#
+  # Attatch NAT Route
+  # ------------------------------------------------------------#
   AttachNatRoute:
     Type: AWS::EC2::Route
     DependsOn: NATGateway
@@ -372,7 +660,146 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGateway
 
-  # DynamoDB VPC Endpoint
+  # ------------------------------------------------------------#
+  # Attatch NAT Route for AZ 1c
+  # ------------------------------------------------------------#
+  AttachNatRouteC:
+    Type: AWS::EC2::Route
+    DependsOn: NATGatewayC
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      RouteTableId: !Ref NatRouteTableC
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGatewayC
+
+  # ------------------------------------------------------------#
+  # Attatch NAT Route for AZ 1d
+  # ------------------------------------------------------------#
+  AttachNatRouteD:
+    Type: AWS::EC2::Route
+    DependsOn: NATGatewayD
+    Condition: isNatGatwayMultiAZ
+    Properties:
+      RouteTableId: !Ref NatRouteTableD
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGatewayD
+
+
+####################################### Subnet RouteTable  Association ############################################
+
+  # ------------------------------------------------------------#
+  # Public Subnet for AZ 1a to Public RouteTable
+  # ------------------------------------------------------------#
+  AttachPublicSubnetAToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+
+  # ------------------------------------------------------------#
+  # Public Subnet for AZ 1c to Public RouteTable
+  # ------------------------------------------------------------#
+  AttachPublicSubnetCToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetC
+
+  # ------------------------------------------------------------#
+  # Public Subnet for AZ 1d to Public RouteTable
+  # ------------------------------------------------------------#
+  AttachPublicSubnetDToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetD
+
+  # ------------------------------------------------------------#
+  # Private Subnet for AZ 1a to Private RouteTable
+  # ------------------------------------------------------------#
+  AttachPrivateSubnetAToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetA
+
+  # ------------------------------------------------------------#
+  # Private Subnet for AZ 1c to Private RouteTable
+  # ------------------------------------------------------------#
+  AttachPrivateSubnetCToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetC
+
+  # ------------------------------------------------------------#
+  # Private Subnet for AZ 1d to Private RouteTable
+  # ------------------------------------------------------------#
+  AttachPrivateSubnetDToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetD
+
+  # ------------------------------------------------------------#
+  # NAT Subnet for AZ 1a to NAT RouteTable
+  # ------------------------------------------------------------#
+  AttachNatSubnetAToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref NatRouteTable
+      SubnetId: !Ref NatSubnetA
+
+  # ------------------------------------------------------------#
+  # NAT Subnet for AZ 1c to NAT RouteTable
+  # ------------------------------------------------------------#
+  AttachNatSubnetCToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !If [isNatGatwayMultiAZ, !Ref NatRouteTableC, !Ref NatRouteTable]
+      SubnetId: !Ref NatSubnetC
+
+  # ------------------------------------------------------------#
+  # NAT Subnet for AZ 1d to NAT RouteTable
+  # ------------------------------------------------------------#
+  AttachNatSubnetDToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !If [isNatGatwayMultiAZ, !Ref NatRouteTableD, !Ref NatRouteTable]
+      SubnetId: !Ref NatSubnetD
+
+  # ------------------------------------------------------------#
+  # Public Internet GW Subnet for AZ 1a to Public Internet GW RouteTable
+  # ------------------------------------------------------------#
+  AttachPublicIgwSubnetAToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicIgwRouteTable
+      SubnetId: !Ref PublicIgwSubnetA
+
+  # ------------------------------------------------------------#
+  # Public Internet GW Subnet for AZ 1c to Public Internet GW RouteTable
+  # ------------------------------------------------------------#
+  AttachPublicIgwSubnetCToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !If [isNatGatwayMultiAZ, !Ref PublicIgwRouteTableC, !Ref PublicIgwRouteTable]
+      SubnetId: !Ref PublicIgwSubnetC
+
+  # ------------------------------------------------------------#
+  # Public Internet GW Subnet for AZ 1d to Public Internet GW RouteTable
+  # ------------------------------------------------------------#
+  AttachPublicIgwSubnetDToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !If [isNatGatwayMultiAZ, !Ref PublicIgwRouteTableD, !Ref PublicIgwRouteTable]
+      SubnetId: !Ref PublicIgwSubnetD
+
+####################################### VPC Endpoint ############################################
+
+  # ------------------------------------------------------------#
+  # VPC Endpoint for DynamoDB
+  # ------------------------------------------------------------#
   VPCEndPointForDynamoDB:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -388,9 +815,14 @@ Resources:
       RouteTableIds:
         - !Ref PrivateRouteTable
         - !Ref NatRouteTable
+        - !If [isNatGatwayMultiAZ, !Ref NatRouteTableC, !Ref 'AWS::NoValue']
+        - !If [isNatGatwayMultiAZ, !Ref NatRouteTableD, !Ref 'AWS::NoValue']
       VpcId: !Ref VPC
       ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
 
+  # ------------------------------------------------------------#
+  # VPC Endpoint for S3
+  # ------------------------------------------------------------#
   VPCEndPointForS3:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -406,75 +838,16 @@ Resources:
       RouteTableIds:
         - !Ref PrivateRouteTable
         - !Ref NatRouteTable
+        - !If [isNatGatwayMultiAZ, !Ref NatRouteTableC, !Ref 'AWS::NoValue']
+        - !If [isNatGatwayMultiAZ, !Ref NatRouteTableD, !Ref 'AWS::NoValue']
       VpcId: !Ref VPC
       ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
 
-  # Attach subnet to route table
-  AttachPublicSubnetAToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref PublicSubnetA
-  AttachPublicSubnetCToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref PublicSubnetC
-  AttachPublicSubnetDToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref PublicSubnetD
+####################################### Subnet Group ############################################
 
-  AttachPrivateSubnetAToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      SubnetId: !Ref PrivateSubnetA
-  AttachPrivateSubnetCToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      SubnetId: !Ref PrivateSubnetC
-  AttachPrivateSubnetDToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      SubnetId: !Ref PrivateSubnetD
-
-  AttachNatSubnetAToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref NatRouteTable
-      SubnetId: !Ref NatSubnetA
-  AttachNatSubnetCToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref NatRouteTable
-      SubnetId: !Ref NatSubnetC
-  AttachNatSubnetDToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref NatRouteTable
-      SubnetId: !Ref NatSubnetD
-
-  AttachPublicIgwSubnetAToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PublicIgwRouteTable
-      SubnetId: !Ref PublicIgwSubnetA
-  AttachPublicIgwSubnetCToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PublicIgwRouteTable
-      SubnetId: !Ref PublicIgwSubnetC
-  AttachPublicIgwSubnetDToRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PublicIgwRouteTable
-      SubnetId: !Ref PublicIgwSubnetD
-
-  # ElastiCache Subnet
+  # ------------------------------------------------------------#
+  # SubnetGroup for ElastiCache
+  # ------------------------------------------------------------#
   ElastiCacheSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Properties:
@@ -485,6 +858,9 @@ Resources:
         - !Ref PrivateSubnetC
         - !Ref PrivateSubnetD
 
+  # ------------------------------------------------------------#
+  # ElastiCache SubnetGroup
+  # ------------------------------------------------------------#
   RDSSubnetGroup:
     Type: "AWS::RDS::DBSubnetGroup"
     Properties:
@@ -501,6 +877,9 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+
+####################################### Outputs ############################################
+
 Outputs:
   VpcId:
     Description: Vpc id
