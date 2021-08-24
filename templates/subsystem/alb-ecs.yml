@@ -40,7 +40,7 @@ Parameters:
   # SSL ACM ARN
   SSLArn:
     Type: String
-    Default: 'arn:aws:acm:ap-northeast-1:845168618390:certificate/976753a5-264e-4e99-94d0-54f7760214ea'
+    Default: 'arn:aws:acm:ap-northeast-1:845168618390:certificate/857b5e23-f62e-4514-a139-a44ef2f1083d'
     Description: Specify ACM ARN
 
   # Target Group Health Check Path
