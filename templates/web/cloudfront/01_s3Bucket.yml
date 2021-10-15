@@ -40,7 +40,8 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
-  # Stores on S3 Bucket
+  ######################### Stores on S3 Bucket #########################
+
   StoresBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
@@ -88,7 +89,8 @@ Resources:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-stores-bucket-identity
 
-  # Sitemap S3Bucket
+  ######################### Sitemap on S3 Bucket #########################
+
   SitemapBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
@@ -134,7 +136,8 @@ Resources:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-sitemap-identity
 
-  # Sorry Pages on S3 Bucket
+  ######################### Sorry Pages on S3 Bucket #########################
+
   SorryPagesBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete

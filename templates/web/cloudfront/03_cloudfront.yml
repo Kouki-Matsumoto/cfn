@@ -129,6 +129,7 @@ Resources:
             OriginCustomHeaders:
               - HeaderName: x-pre-shared-key
                 HeaderValue: !Ref SystemName
+
           ## Origin for Sitemap
           - DomainName:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sitemap-domain
@@ -139,11 +140,6 @@ Resources:
                 - ''
                 - - origin-access-identity/cloudfront/
                   - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sitemap-oai
-          ## Origin for Error pages
-          - DomainName: !GetAtt 'ErrorPagesBucket.DomainName'
-            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-error-pages
-            S3OriginConfig:
-              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${ErrorPagesBucketOriginAccessIdentity}
 
           ## Origin for Sorry pages
           - DomainName:
@@ -313,6 +309,17 @@ Resources:
             - hasWebACL
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
             - !Ref AWS::NoValue
+
+        CustomErrorResponses:
+          - ErrorCode: 504
+            ErrorCachingMinTTL: 0
+            ResponsePagePath: '/errors/504'
+            ResponseCode: 504
+          - ErrorCode: 502
+            ErrorCachingMinTTL: 0
+            ResponsePagePath: '/errors/502'
+            ResponseCode: 502
+
       Tags:
         - Key: Name
           Value: !Sub ${SystemName}-${ENV}-cloudfront
@@ -369,49 +376,6 @@ Resources:
         HostedZoneId: Z2FDTNDATAQYW2
 
 ####################################### S3 ############################################
-
-  # Error Pages S3Bucket
-  ErrorPagesBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-    Properties:
-      BucketName: !Sub ${ServiceName}-${ENV}-${SystemName}-error-pages-bucket
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      Tags:
-        - Key: Name
-          Value: !Sub ${SystemName}-${ENV}-error-pages-bucket
-        - Key: ENV
-          Value: !Ref ENV
-        - Key: Project
-          Value: !Ref ServiceName
-        - Key: SystemName
-          Value: !Ref SystemName
-        - Key: ProjectId
-          Value: !Ref ProjectId
-
-  # S3Bucket Policy To Allow Access From CloudFront OAI
-  ErrorPagesBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref ErrorPagesBucket
-      PolicyDocument:
-        Statement:
-          - Action: s3:GetObject
-            Effect: Allow
-            Resource: !Sub arn:aws:s3:::${ErrorPagesBucket}/*
-            Principal:
-              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${ErrorPagesBucketOriginAccessIdentity}
-
-  # Error Pages Origin Access Identity
-  ErrorPagesBucketOriginAccessIdentity:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub ${ServiceName}-${ENV}-${SystemName}-error-pages-identity
 
   # Static Pages S3Bucket
   StaticPagesBucket:
