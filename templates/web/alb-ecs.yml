@@ -96,9 +96,16 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
     Description: Enter project id, like 「tipness」,「shiki」
 
+  # Master ECR
+  MaterECRSystemName:
+    Type: String
+    Default: 'pvs-web'
+    Description: Specify ECR
+
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
   hasProjectId: !Not [!Equals [!Ref ProjectId, '']]
+  hasNotMaterECR: !Equals [!Ref MaterECRSystemName, '']
 
 
 Resources:
@@ -282,6 +289,7 @@ Resources:
   # ------------------------------------------------------------#
   ECR:
     Type: AWS::ECR::Repository
+    Condition: hasNotMaterECR
     Properties:
       RepositoryName: !Sub ${SystemName}-${ENV}
       Tags:
@@ -338,7 +346,10 @@ Resources:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
       ContainerDefinitions:
         - Name: !Sub ${SystemName}-${ENV}-blue
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue
+          Image: !If
+            - hasNotMaterECR
+            - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue
+            - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MaterECRSystemName}-${ENV}:${ENV}-blue
           PortMappings:
           - ContainerPort: !Ref ContainerPort
             HostPort: !Ref ContainerPort
@@ -385,7 +396,10 @@ Resources:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${TaskRoleOutputName}
       ContainerDefinitions:
         - Name: !Sub ${SystemName}-${ENV}-green
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green
+          Image: !If
+            - hasNotMaterECR
+            - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green
+            - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MaterECRSystemName}-${ENV}:${ENV}-green
           PortMappings:
           - ContainerPort: !Ref ContainerPort
             HostPort: !Ref ContainerPort
@@ -725,13 +739,13 @@ Resources:
 Outputs:
   ECRepository:
     Description: EC Repository Path
-    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}
+    Value: !If [hasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}", ""]
   ECRBlue:
     Description: EC Repository Path
-    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-blue
+    Value: !If [hasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue", ""]
   ECRGreen:
     Description: EC Repository Path
-    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-green
+    Value: !If [hasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green", ""]
   ALBListener:
     Description: ALB Listener ARN
     Value: !Ref ALBListener
