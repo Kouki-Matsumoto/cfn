@@ -115,6 +115,9 @@ Resources:
           CidrIp: 113.43.239.66/32
           Description: Tokyo Office
         - IpProtocol: -1
+          CidrIp: 124.36.35.82/32
+          Description: Tokyo Office New
+        - IpProtocol: -1
           CidrIp: 122.221.102.154/32
           Description: Fukuoka Office
         - IpProtocol: -1
