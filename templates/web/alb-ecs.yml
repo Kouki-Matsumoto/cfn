@@ -38,8 +38,8 @@ Parameters:
   # Target Group Health Check Path
   HealthCheckPathName:
     Type: String
-    AllowedPattern: ^[a-z0-9-_]*$
-    Default: health_check
+    AllowedPattern: ^[a-z0-9-_]*.(html?)$
+    Default: health_check.html
     ConstraintDescription: Malformed input-Parameter HealthCheckPathName must match pattern [a-z0-9-_]+
     Description: Enter Target Group Health Check Path, like 「health_check」
 
@@ -97,7 +97,7 @@ Parameters:
     Description: Enter project id, like 「tipness」,「shiki」
 
   # Master ECR
-  MaterECRSystemName:
+  MasterECRSystemName:
     Type: String
     Default: 'pvs-web'
     Description: Specify ECR
@@ -105,7 +105,7 @@ Parameters:
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
   hasProjectId: !Not [!Equals [!Ref ProjectId, '']]
-  hasNotMaterECR: !Equals [!Ref MaterECRSystemName, '']
+  hasNotMaterECR: !Equals [!Ref MasterECRSystemName, '']
 
 
 Resources:
@@ -349,7 +349,7 @@ Resources:
           Image: !If
             - hasNotMaterECR
             - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue
-            - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MaterECRSystemName}-${ENV}:${ENV}-blue
+            - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MasterECRSystemName}-${ENV}:${ENV}-blue
           PortMappings:
           - ContainerPort: !Ref ContainerPort
             HostPort: !Ref ContainerPort
@@ -399,7 +399,7 @@ Resources:
           Image: !If
             - hasNotMaterECR
             - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green
-            - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MaterECRSystemName}-${ENV}:${ENV}-green
+            - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MasterECRSystemName}-${ENV}:${ENV}-green
           PortMappings:
           - ContainerPort: !Ref ContainerPort
             HostPort: !Ref ContainerPort
