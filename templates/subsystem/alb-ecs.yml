@@ -327,13 +327,13 @@ Resources:
         - !Ref "AWS::NoValue"
       SslPolicy: "ELBSecurityPolicy-2016-08"
       DefaultActions:
-      - Type: forward
-        ForwardConfig:
-          TargetGroups:
-          - TargetGroupArn: !Ref ALBTargetBlue
-            Weight: 1
-          - TargetGroupArn: !Ref ALBTargetGreen
-            Weight: 0
+        - Type: forward
+          ForwardConfig:
+            TargetGroups:
+            - TargetGroupArn: !Ref ALBTargetBlue
+              Weight: 1
+            - TargetGroupArn: !Ref ALBTargetGreen
+              Weight: 0
 
   # ------------------------------------------------------------#
   # ALB NotFound Listener Rule (Public)
