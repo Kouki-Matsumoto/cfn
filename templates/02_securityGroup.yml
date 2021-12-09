@@ -14,6 +14,24 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
     Description: Enter service name, like 「play-store」
 
+  # For VPC Peering
+  # #1
+  PeerVpcCidrBlock1:
+    Type: String
+    Default: ''
+    Description: Enter Peering VPC ID, like 「10.1.0.0/16」
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      Label:
+        default: VPC Peer Connection Configuration
+      Parameters:
+        - PeerVpcCidrBlock1
+
+Conditions:
+  hasPeerVpc: !Not [!Equals [!Ref PeerVpcCidrBlock1, '']]
+
 Resources:
   # ALB
   ALBSecurityGroup:
@@ -71,7 +89,7 @@ Resources:
     DependsOn: ALBSecurityGroup
     Properties:
       GroupName: !Sub ${ServiceName}-${ENV}-common-sg
-      GroupDescription: !Sub ${ServiceName}-${ENV}-common-sg
+      GroupDescription: !Sub ${ServiceName}-${ENV}-common-sq
       VpcId:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
       SecurityGroupIngress:
@@ -87,6 +105,14 @@ Resources:
           FromPort: 443
           ToPort: 443
           SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
+        - !If
+          - hasPeerVpc
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: !Ref PeerVpcCidrBlock1
+            Description: 'from Other AWS VPC1'
+          - !Ref AWS::NoValue
       Tags:
       - Key: Name
         Value: !Sub ${ServiceName}-${ENV}-common-sg
@@ -94,6 +120,8 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+
+  # Ingress Common SecurityGroup
   IngressCommonToCommonSecurityGroup:
     Type: AWS::EC2::SecurityGroupIngress
     DependsOn: CommonSecurityGroup

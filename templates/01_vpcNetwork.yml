@@ -45,6 +45,29 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
+  # For VPC Peering
+  # #1
+  PeerConnectionId1:
+    Type: String
+    Default: ''
+    AllowedPattern: ^($|[a-z]+-[a-z0-9]+$)
+    ConstraintDescription: "Malformed input-Parameter PeerConnectionId1 must match pattern ^[a-z]+-[a-z0-9]+$"
+    Description: Enter Peering VPC ID, like 「pcx-0fcf4c3dc68159d88」
+
+  PeerVpcCidrBlock1:
+    Type: String
+    Default: ''
+    Description: Enter Peering VPC ID, like 「10.1.0.0/16」
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      Label:
+        default: VPC Peer Connection Configuration
+      Parameters:
+        - PeerConnectionId1
+        - PeerVpcCidrBlock1
+
 Conditions:
   isNatGatwayMultiAZ: !Equals [!Ref EnableNatGatwayMultiAZ, 'true']
 
@@ -60,6 +83,10 @@ Conditions:
   noSpecifyNatIpAIDAzD: !And
     - !Equals [!Ref NatIPAllocationIdAzD, '']
     - Condition: isNatGatwayMultiAZ
+
+  hasPeerVpc1: !And
+    - !Not [!Equals [!Ref PeerConnectionId1, '']]
+    - !Not [!Equals [!Ref PeerVpcCidrBlock1, '']]
 
 Mappings:
   EnvCidrBlock:
@@ -371,7 +398,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
       - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-private- route-table
+        Value: !Sub ${ServiceName}-${ENV}-private-route-table
       - Key: ENV
         Value: !Ref ENV
       - Key: Project
@@ -683,6 +710,17 @@ Resources:
       RouteTableId: !Ref NatRouteTableD
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGatewayD
+
+  # ------------------------------------------------------------#
+  # Attatch Private Route
+  # ------------------------------------------------------------#
+  AttachPrivateRouteForPeerVPC1:
+    Type: AWS::EC2::Route
+    Condition: hasPeerVpc1
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: !Ref PeerVpcCidrBlock1
+      VpcPeeringConnectionId: !Ref PeerConnectionId1
 
 
 ####################################### Subnet RouteTable  Association ############################################
