@@ -294,7 +294,7 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
         ViewerCertificate:
           SslSupportMethod: sni-only
-          MinimumProtocolVersion: TLSv1.2_2018
+          MinimumProtocolVersion: TLSv1.2_2021
           AcmCertificateArn: !Ref SSLArn
         HttpVersion: http2
         Enabled: true
