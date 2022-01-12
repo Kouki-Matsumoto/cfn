@@ -1,4 +1,30 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - SystemName
+          - ProjectId
+          - SSLArn
+      - Label:
+          default: Domain Setting
+        Parameters:
+          - ALBDomainName
+          - DomainName
+          - CustomerDomain
+          - CustomerStaticPagesBucketDomainName
+          - ExternalDomainName
+      - Label:
+          default: Options
+        Parameters:
+          - AttachWebACL
+          - BasicAuth
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -11,9 +37,9 @@ Parameters:
   ServiceName:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    Default: play-store
+    Default: pvs
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
-    Description: Enter service name, like 「play-store」
+    Description: Enter service name, like 「pvs」
 
   #システム名
   SystemName:
@@ -78,6 +104,13 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter DistributionCname must match pattern ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}|^$
     Description: Enter ExternalDomainName, like 「xxxxx.com」
 
+  # Basic Auth
+  BasicAuth:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
   hasWebACL: !Equals [!Ref AttachWebACL, 'true']
@@ -85,6 +118,7 @@ Conditions:
   hasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
   hasCustomerStaticPagesBucketDomainName: !Not [!Equals [!Ref CustomerStaticPagesBucketDomainName, '']]
   hasExternalDomainName: !Not [!Equals [!Ref ExternalDomainName, '']]
+  enableBasicAuth: !Equals [!Ref BasicAuth, 'true']
 
 Resources:
 
@@ -216,6 +250,13 @@ Resources:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
           OriginRequestPolicyId:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+          LambdaFunctionAssociations:
+            - !If
+              - enableBasicAuth
+              - EventType: viewer-request
+                LambdaFunctionARN:
+                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-function-version
+              - !Ref AWS::NoValue
         ### Behaviors
         CacheBehaviors:
           ## sitemap
