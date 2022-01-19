@@ -22,6 +22,7 @@ Metadata:
         Parameters:
           - AttachWebACL
           - BasicAuth
+          - MaintenanceMode
           - CustomerStaticPages
 
 #スタックパラメーター設定
@@ -103,14 +104,22 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
+  # Maintenance Mode
+  MaintenanceMode:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
 
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
-  hasWebACL: !Equals [!Ref AttachWebACL, 'true']
+  hasWebACL: !Or [!Equals [!Ref AttachWebACL, 'true'], !Equals [!Ref MaintenanceMode, 'true']]
   hasNotDomainName: !Equals [!Ref DomainName, '']
   hasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
   hasCustomerStaticPages: !Equals [!Ref CustomerStaticPages, 'true']
   enableBasicAuth: !Equals [!Ref BasicAuth, 'true']
+  enableMaintenanceMode: !Equals [!Ref MaintenanceMode, 'true']
 
 Resources:
 
@@ -359,6 +368,13 @@ Resources:
             ErrorCachingMinTTL: 0
             ResponsePagePath: '/errors/502'
             ResponseCode: 502
+          - !If
+            - enableMaintenanceMode
+            - ErrorCode: 403
+              ErrorCachingMinTTL: 0
+              ResponsePagePath: '/sorry/maintenance.html'
+              ResponseCode: 503
+            - !Ref AWS::NoValue
 
       Tags:
         - Key: Name
