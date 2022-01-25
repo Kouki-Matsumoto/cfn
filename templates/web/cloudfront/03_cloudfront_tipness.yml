@@ -256,7 +256,7 @@ Resources:
           DefaultTTL: 0
           Compress: true
           CachePolicyId:
-            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-default-policy-id
           OriginRequestPolicyId:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
           LambdaFunctionAssociations:
