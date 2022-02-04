@@ -204,7 +204,7 @@ Outputs:
     Export:
       Name: !Sub ${ServiceName}-${ENV}-js-policy-id
   DefaultCachePolicyId:
-    Value: !Ref JsCachePolicy
+    Value: !Ref DefaultCachePolicy
     Export:
       Name: !Sub ${ServiceName}-${ENV}-default-policy-id
   DisabledOriginRequestPolicyId:
