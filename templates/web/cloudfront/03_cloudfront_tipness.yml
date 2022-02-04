@@ -303,7 +303,7 @@ Resources:
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
               CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-default-cache-policy
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-default-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
             - !Ref 'AWS::NoValue'
@@ -327,7 +327,7 @@ Resources:
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
               CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-default-cache-policy
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-default-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
             - !Ref 'AWS::NoValue'
