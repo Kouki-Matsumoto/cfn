@@ -28,8 +28,8 @@ Resources:
           MaxTTL: 0
           MinTTL: 0
           ParametersInCacheKeyAndForwardedToOrigin:
-            EnableAcceptEncodingBrotli: false
-            EnableAcceptEncodingGzip: false
+            EnableAcceptEncodingBrotli: true
+            EnableAcceptEncodingGzip: true
             HeadersConfig:
               HeaderBehavior: none
             CookiesConfig:
@@ -104,9 +104,9 @@ Resources:
       CachePolicyConfig:
           Name: !Sub ${ServiceName}-${ENV}-default-cache-policy
           Comment: !Sub ${ServiceName}-${ENV}-default-cache-policy
-          DefaultTTL: 5
-          MaxTTL: 5
-          MinTTL: 5
+          DefaultTTL: 1
+          MaxTTL: 1
+          MinTTL: 1
           ParametersInCacheKeyAndForwardedToOrigin:
             EnableAcceptEncodingBrotli: true
             EnableAcceptEncodingGzip: true
