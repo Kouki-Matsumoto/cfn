@@ -28,8 +28,8 @@ Resources:
           MaxTTL: 0
           MinTTL: 0
           ParametersInCacheKeyAndForwardedToOrigin:
-            EnableAcceptEncodingBrotli: true
-            EnableAcceptEncodingGzip: true
+            EnableAcceptEncodingBrotli: false
+            EnableAcceptEncodingGzip: false
             HeadersConfig:
               HeaderBehavior: none
             CookiesConfig:
