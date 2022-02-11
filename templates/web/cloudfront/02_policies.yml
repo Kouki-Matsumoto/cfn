@@ -146,6 +146,26 @@ Resources:
         QueryStringsConfig:
           QueryStringBehavior: all
 
+  ## Static Cache Policy
+  StaticCachePolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub ${ServiceName}-${ENV}-static-cache-policy
+        Comment: !Sub ${ServiceName}-${ENV}-static-cache-cloudfront-policy
+        HeadersConfig:
+          HeaderBehavior: allViewerAndWhitelistCloudFront
+          Headers:
+            - CloudFront-Viewer-Country
+            - CloudFront-Viewer-Country-Name
+            - CloudFront-Viewer-Country-Region
+            - CloudFront-Viewer-Country-Region-Name
+            - CloudFront-Viewer-City
+        CookiesConfig:
+          CookieBehavior: none
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
   ## All Viewer And CloudFront Policy
   AllViewerAndCloudFrontPolicy:
     Type: AWS::CloudFront::OriginRequestPolicy
@@ -195,6 +215,10 @@ Outputs:
     Value: !Ref GeolocationHeadersPolicy
     Export:
       Name: !Sub ${ServiceName}-${ENV}-geolocation-policy-id
+  StaticCachePolicyId:
+    Value: !Ref StaticCachePolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
   AllViewerAndCloudFrontPolicyId:
     Value: !Ref AllViewerAndCloudFrontPolicy
     Export:

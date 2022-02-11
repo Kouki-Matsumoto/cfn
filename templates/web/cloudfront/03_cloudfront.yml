@@ -308,7 +308,7 @@ Resources:
             CachePolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
             OriginRequestPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
 
           ## assets
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -324,7 +324,7 @@ Resources:
             CachePolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
             OriginRequestPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
 
           ## js
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -340,7 +340,7 @@ Resources:
             CachePolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-js-policy-id
             OriginRequestPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
         ViewerCertificate:
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
