@@ -326,6 +326,22 @@ Resources:
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
 
+          ## css
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /css/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+
           ## js
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
             PathPattern: /js/*
