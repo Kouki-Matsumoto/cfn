@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  #システム名
+  SystemName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「token-manager」
+
+  #クラスターモード
+  ClusterMode:
+    Type: String
+    AllowedValues: ['disable', 'enable']
+    Default: disable
+    ConstraintDescription: Enter disable or enable."
+
+  #ノードタイプ
+  CacheNodeType:
+    Type: String
+    Default: cache.t3.micro
+    ConstraintDescription: Node instance class not supported
+    Description: Select one Cache Node Type, like 「cache.t3.micro」
+    AllowedPattern: ^[a-z0-9.]*$
+    AllowedValues:
+      - cache.t2.micro
+      - cache.t2.small
+      - cache.t2.medium
+      - cache.t3.micro
+      - cache.t3.small
+      - cache.t3.medium
+      - cache.m4.large
+      - cache.m4.xlarge
+      - cache.r4.large
+      - cache.r4.xlarge
+
+Conditions:
+  isClusterMode: !Equals [!Ref ClusterMode, 'enable']
+  isNotClusterMode: !Not [!Equals [!Ref ClusterMode, 'enable']]
+
+Resources:
+  # Elasticache(Clustered Redis)
+  ClusteredRedis:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Condition: isClusterMode
+    Properties:
+      ReplicationGroupId: !Sub ${ServiceName}-${ENV}-${SystemName}
+      ReplicationGroupDescription: !Sub ${ServiceName}-${ENV}-${SystemName}
+      Engine: redis
+      EngineVersion: 5.0.6
+      CacheParameterGroupName: default.redis5.0.cluster.on
+      AutoMinorVersionUpgrade: true
+      MultiAZEnabled: true
+      AutomaticFailoverEnabled: true
+      NumNodeGroups: 2
+      ReplicasPerNodeGroup: 2
+      Port: 6379
+      CacheNodeType: !Ref CacheNodeType
+      CacheSubnetGroupName:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+
+  Redis:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Condition: isNotClusterMode
+    Properties:
+      ReplicationGroupId: !Sub ${ServiceName}-${ENV}-${SystemName}
+      ReplicationGroupDescription: !Sub ${ServiceName}-${ENV}-${SystemName}
+      Engine: redis
+      EngineVersion: 5.0.6
+      CacheParameterGroupName: default.redis5.0
+      AutoMinorVersionUpgrade: true
+      MultiAZEnabled: true
+      AutomaticFailoverEnabled: true
+      NumCacheClusters: 2
+      Port: 6379
+      CacheNodeType: !Ref CacheNodeType
+      CacheSubnetGroupName:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+
+Outputs:
+  EndPointAddress:
+    Description: EndPointAddress
+    Value: !If [isClusterMode, !GetAtt ClusteredRedis.ConfigurationEndPoint.Address, !GetAtt Redis.PrimaryEndPoint.Address]
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-endpoint
+  EndPointPort:
+    Description: EndPointPort
+    Value: !If [isClusterMode, !GetAtt ClusteredRedis.ConfigurationEndPoint.Port, !GetAtt Redis.PrimaryEndPoint.Port]
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-endpoint-port
