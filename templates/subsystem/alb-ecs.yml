@@ -180,12 +180,7 @@ Conditions:
   hasALBSchemaInternal: !Or
     - !Not [!Equals [!Ref ALBSchemaType, 'internet-facing']]
     - Condition: isALBSchemaBoth
-  hasConfigBucketInternet: !And
-    - !Equals [!Ref UseConfigBucket, 'true']
-    - Condition: hasALBSchemaInternet
-  hasConfigBucketInternal: !And
-    - !Equals [!Ref UseConfigBucket, 'true']
-    - Condition: hasALBSchemaInternal
+  hasConfigBucket: !Equals [!Ref UseConfigBucket, 'true']
   hasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
   hasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
 
@@ -568,7 +563,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasConfigBucketInternet
+              - hasConfigBucket
               - Name: 'CONFIG_BUCKET'
                 Value:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
@@ -614,7 +609,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasConfigBucketInternet
+              - hasConfigBucket
               - Name: 'CONFIG_BUCKET'
                 Value:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
