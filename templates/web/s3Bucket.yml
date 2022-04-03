@@ -11,9 +11,9 @@ Parameters:
   ServiceName:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    Default: play-store
+    Default: pvs
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
-    Description: Enter service name, like 「play-store」
+    Description: Enter service name, like 「pvs」
 
   # Project ID
   ProjectId:
@@ -29,7 +29,6 @@ Resources:
   # Project Image on S3 Bucket
   ProjectImageBucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
     Properties:
       BucketName: !Join
         - ''

@@ -1,4 +1,30 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - SystemName
+          - ProjectId
+          - SSLArn
+      - Label:
+          default: Domain Setting
+        Parameters:
+          - ALBDomainName
+          - DomainName
+          - CustomerDomain
+      - Label:
+          default: Options
+        Parameters:
+          - AttachWebACL
+          - BasicAuth
+          - MaintenanceMode
+          - CustomerStaticPages
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -11,9 +37,9 @@ Parameters:
   ServiceName:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    Default: play-store
+    Default: pvs
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
-    Description: Enter service name, like 「play-store」
+    Description: Enter service name, like 「pvs」
 
   #システム名
   SystemName:
@@ -71,13 +97,29 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
+  # Basic Auth
+  BasicAuth:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
+  # Maintenance Mode
+  MaintenanceMode:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
 
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
-  hasWebACL: !Equals [!Ref AttachWebACL, 'true']
+  hasWebACL: !Or [!Equals [!Ref AttachWebACL, 'true'], !Equals [!Ref MaintenanceMode, 'true']]
   hasNotDomainName: !Equals [!Ref DomainName, '']
   hasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
   hasCustomerStaticPages: !Equals [!Ref CustomerStaticPages, 'true']
+  enableBasicAuth: !Equals [!Ref BasicAuth, 'true']
+  enableMaintenanceMode: !Equals [!Ref MaintenanceMode, 'true']
 
 Resources:
 
@@ -195,6 +237,13 @@ Resources:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
           OriginRequestPolicyId:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+          LambdaFunctionAssociations:
+            - !If
+              - enableBasicAuth
+              - EventType: viewer-request
+                LambdaFunctionARN:
+                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-function-version
+              - !Ref AWS::NoValue
         ### Behaviors
         CacheBehaviors:
           ## sitemap
@@ -294,7 +343,7 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
         ViewerCertificate:
           SslSupportMethod: sni-only
-          MinimumProtocolVersion: TLSv1.2_2018
+          MinimumProtocolVersion: TLSv1.2_2021
           AcmCertificateArn: !Ref SSLArn
         HttpVersion: http2
         Enabled: true
@@ -319,6 +368,13 @@ Resources:
             ErrorCachingMinTTL: 0
             ResponsePagePath: '/errors/502'
             ResponseCode: 502
+          - !If
+            - enableMaintenanceMode
+            - ErrorCode: 403
+              ErrorCachingMinTTL: 0
+              ResponsePagePath: '/sorry/maintenance.html'
+              ResponseCode: 503
+            - !Ref AWS::NoValue
 
       Tags:
         - Key: Name

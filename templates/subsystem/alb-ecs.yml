@@ -1,4 +1,36 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - SystemName
+          - ALBSchemaType
+          - PublicALBSecurityPolicy
+          - ContainerPort
+          - SSLArn
+          - HealthCheckPathName
+          - TaskRoleOutputName
+          - UseConfigBucket
+          - ALBDropInvalidHeaderFields
+      - Label:
+          default: ECS Task Definition
+        Parameters:
+          - ECSTaskDefinitionCPU
+          - ECSTaskDefinitionMemory
+      - Label:
+          default: ECS AutoScaling Scaling
+        Parameters:
+          - ECSTaskDesiredCountBlue
+          - ECSTaskDesiredCountGreen
+          - ECSTargetTracking
+          - ECSStepScaleOutThreshold
+          - ECSStepScaleInThreshold
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -90,6 +122,24 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ECSTargetTracking must match 0.0 ~ 100.0
     Description: Enter number of ECS task blue target tracking, like 「25.0」
 
+  # ECS Step Scale Out CPU Utilization Threshold
+  ECSStepScaleOutThreshold:
+    Type: Number
+    MinValue: 0.0
+    MaxValue: 100.0
+    Default: 0.0
+    ConstraintDescription: Malformed input-Parameter ECSStepScaleOutThreshold must match 0.0 ~ 100.0
+    Description: Enter number of ECS step scale out CPU Utilization threshold, like 「80.0」
+
+  # ECS Step Scale In CPU Utilization Threshold
+  ECSStepScaleInThreshold:
+    Type: Number
+    MinValue: 0.0
+    MaxValue: 100.0
+    Default: 0.0
+    ConstraintDescription: Malformed input-Parameter ECSStepScaleInThreshold must match 0.0 ~ 100.0
+    Description: Enter number of ECS step scale in CPU Utilization threshold, like 「50.0」
+
   # ECS TaskDefinition CPU
   ECSTaskDefinitionCPU:
     Type: Number
@@ -104,6 +154,31 @@ Parameters:
     Default: 1024
     Description: Enter 512, 1024 or 2048 ...
 
+  # Public ALB SecurityPolicy
+  PublicALBSecurityPolicy:
+    Type: String
+    AllowedValues:
+      - "ELBSecurityPolicy-2016-08"
+      - "ELBSecurityPolicy-TLS-1-0-2015-04"
+      - "ELBSecurityPolicy-TLS-1-1-2017-01"
+      - "ELBSecurityPolicy-TLS-1-2-2017-01"
+      - "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+      - "ELBSecurityPolicy-FS-2018-06"
+      - "ELBSecurityPolicy-FS-1-1-2019-08"
+      - "ELBSecurityPolicy-FS-1-2-2019-08"
+      - "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+      - "ELBSecurityPolicy-FS-1-2-Res-2019-08"
+      - "ELBSecurityPolicy-FS-1-2-Res-2020-10"
+    Default: 'ELBSecurityPolicy-2016-08'
+    ConstraintDescription: Select Security policy for Public ALB."
+
+  # ALB Drop Invalid HeaderFields Options
+  ALBDropInvalidHeaderFields:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
 Conditions:
   isALBSchemaBoth: !Equals [!Ref ALBSchemaType, 'both']
   isProd: !Equals [!Ref ENV, prod]
@@ -113,12 +188,10 @@ Conditions:
   hasALBSchemaInternal: !Or
     - !Not [!Equals [!Ref ALBSchemaType, 'internet-facing']]
     - Condition: isALBSchemaBoth
-  hasConfigBucketInternet: !And
-    - !Equals [!Ref UseConfigBucket, 'true']
-    - Condition: hasALBSchemaInternet
-  hasConfigBucketInternal: !And
-    - !Equals [!Ref UseConfigBucket, 'true']
-    - Condition: hasALBSchemaInternal
+  hasConfigBucket: !Equals [!Ref UseConfigBucket, 'true']
+  hasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
+  hasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
+  hasALBDropInvalidHeaderFields: !Equals [!Ref ALBDropInvalidHeaderFields, 'true']
 
 
 Resources:
@@ -258,6 +331,11 @@ Resources:
             Fn::ImportValue: !Sub '${ServiceName}-${ENV}-alb-logs-bucket'
         - Key: access_logs.s3.prefix
           Value: !Sub '${SystemName}/public'
+        - !If
+          - hasALBDropInvalidHeaderFields
+          - Key: routing.http.drop_invalid_header_fields.enabled
+            Value: true
+          - !Ref 'AWS::NoValue'
       SecurityGroups:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-alb-sg-id
 
@@ -325,7 +403,7 @@ Resources:
       Certificates:
         - CertificateArn: !Ref SSLArn
         - !Ref "AWS::NoValue"
-      SslPolicy: "ELBSecurityPolicy-2016-08"
+      SslPolicy: !Ref PublicALBSecurityPolicy
       DefaultActions:
         - Type: forward
           ForwardConfig:
@@ -499,7 +577,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasConfigBucketInternet
+              - hasConfigBucket
               - Name: 'CONFIG_BUCKET'
                 Value:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
@@ -545,7 +623,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasConfigBucketInternet
+              - hasConfigBucket
               - Name: 'CONFIG_BUCKET'
                 Value:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
@@ -659,7 +737,7 @@ Resources:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
       MinCapacity: !Ref ECSTaskDesiredCountBlue
-      MaxCapacity: 10
+      MaxCapacity: 50
       ResourceId: !Sub
         - 'service/${Cluster}/${Service}'
         - Cluster: !Ref ECSCluster
@@ -676,7 +754,7 @@ Resources:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
       MinCapacity: !Ref ECSTaskDesiredCountGreen
-      MaxCapacity: 10
+      MaxCapacity: 50
       ResourceId: !Sub
         - 'service/${Cluster}/${Service}'
         - Cluster: !Ref ECSCluster
@@ -721,6 +799,106 @@ Resources:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         ScaleOutCooldown: 60
         ScaleInCooldown: 60
+
+  # ------------------------------------------------------------#
+  # StepScalingPolicy (Scale Out) Blue
+  # ------------------------------------------------------------#
+  StepScallingScaleOutPolicyBlue:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: hasECSStepScaleOutThreshold
+    DependsOn:
+      - ECSServiceBlue
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-blue-step-scale-out
+      ScalingTargetId: !Ref AutoScalingTargetBlue
+      PolicyType: StepScaling
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        StepAdjustments:
+          - MetricIntervalLowerBound: 0
+            MetricIntervalUpperBound: 10
+            ScalingAdjustment: 10
+          - MetricIntervalLowerBound: 10
+            ScalingAdjustment: 20
+        Cooldown: 60
+        MetricAggregationType: Average
+
+  # ------------------------------------------------------------#
+  # StepScalingPolicy (Scale Out) Green
+  # ------------------------------------------------------------#
+  StepScallingScaleOutPolicyGreen:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: hasECSStepScaleOutThreshold
+    DependsOn:
+      - ECSServiceGreen
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-green-step-scale-out
+      ScalingTargetId: !Ref AutoScalingTargetGreen
+      PolicyType: StepScaling
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        StepAdjustments:
+          - MetricIntervalLowerBound: 0
+            MetricIntervalUpperBound: 10
+            ScalingAdjustment: 10
+          - MetricIntervalLowerBound: 10
+            ScalingAdjustment: 20
+        Cooldown: 60
+        MetricAggregationType: Average
+
+  # ------------------------------------------------------------#
+  # StepScalingPolicy (Scale In) Blue
+  # ------------------------------------------------------------#
+  StepScallingScaleInPolicyBlue:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: hasECSStepScaleInThreshold
+    DependsOn:
+      - ECSServiceBlue
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-blue-step-scale-in
+      ScalingTargetId: !Ref AutoScalingTargetBlue
+      PolicyType: StepScaling
+      StepScalingPolicyConfiguration:
+        AdjustmentType: PercentChangeInCapacity
+        StepAdjustments:
+          - MetricIntervalLowerBound: -40
+            MetricIntervalUpperBound: -35
+            ScalingAdjustment: -25
+          - MetricIntervalLowerBound: -45
+            MetricIntervalUpperBound: -40
+            ScalingAdjustment: -50
+          - MetricIntervalUpperBound: -45
+            ScalingAdjustment: -75
+        MinAdjustmentMagnitude: 1
+        Cooldown: 120
+        MetricAggregationType: Average
+
+  # ------------------------------------------------------------#
+  # StepScalingPolicy (Scale In) Green
+  # ------------------------------------------------------------#
+  StepScallingScaleInPolicyGreen:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: hasECSStepScaleInThreshold
+    DependsOn:
+      - ECSServiceGreen
+    Properties:
+      PolicyName: !Sub ${SystemName}-${ENV}-green-step-scale-in
+      ScalingTargetId: !Ref AutoScalingTargetGreen
+      PolicyType: StepScaling
+      StepScalingPolicyConfiguration:
+        AdjustmentType: PercentChangeInCapacity
+        StepAdjustments:
+          - MetricIntervalLowerBound: -40
+            MetricIntervalUpperBound: -35
+            ScalingAdjustment: -25
+          - MetricIntervalLowerBound: -45
+            MetricIntervalUpperBound: -40
+            ScalingAdjustment: -50
+          - MetricIntervalUpperBound: -45
+            ScalingAdjustment: -75
+        MinAdjustmentMagnitude: 1
+        Cooldown: 120
+        MetricAggregationType: Average
 
 #######################################CloudWatch Alarms############################################
 
@@ -789,6 +967,137 @@ Resources:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
       OKActions:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+
+  # ------------------------------------------------------------#
+  # ECS Blue Service CPUUtilization Alarm (Step Scaling Scale Out)
+  # ------------------------------------------------------------#
+  CPUAlarmServiceScaleOutBlue:
+    Type: AWS::CloudWatch::Alarm
+    Condition: hasECSStepScaleOutThreshold
+    DependsOn:
+      - StepScallingScaleOutPolicyBlue
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'CPUUtilization Step Scale Out ['
+          - !GetAtt 'ECSServiceBlue.Name'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Dimensions:
+        - Name: ClusterName
+          Value : !Ref ECSCluster
+        - Name: ServiceName
+          Value: !GetAtt 'ECSServiceBlue.Name'
+      AlarmDescription: !Sub "ECS CPU使用率 ${ECSStepScaleOutThreshold}%"
+      Period: 60
+      Threshold: !Ref ECSStepScaleOutThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - !Ref StepScallingScaleOutPolicyBlue
+
+  # ------------------------------------------------------------#
+  # ECS Green Service CPUUtilization Alarm (Step Scaling Scale Out)
+  # ------------------------------------------------------------#
+  CPUAlarmServiceScaleOutGreen:
+    Type: AWS::CloudWatch::Alarm
+    Condition: hasECSStepScaleOutThreshold
+    DependsOn:
+      - StepScallingScaleOutPolicyGreen
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'CPUUtilization Step Scale Out ['
+          - !GetAtt 'ECSServiceGreen.Name'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Dimensions:
+        - Name: ClusterName
+          Value : !Ref ECSCluster
+        - Name: ServiceName
+          Value: !GetAtt 'ECSServiceGreen.Name'
+      AlarmDescription: !Sub "ECS CPU使用率 ${ECSStepScaleOutThreshold}%"
+      Period: 60
+      Threshold: !Ref ECSStepScaleOutThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - !Ref StepScallingScaleOutPolicyGreen
+  # ------------------------------------------------------------#
+  # ECS Blue Service CPUUtilization Alarm (Step Scaling Scale In)
+  # ------------------------------------------------------------#
+  CPUAlarmServiceScaleInBlue:
+    Type: AWS::CloudWatch::Alarm
+    Condition: hasECSStepScaleInThreshold
+    DependsOn:
+      - StepScallingScaleInPolicyBlue
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'CPUUtilization Step Scale In ['
+          - !GetAtt 'ECSServiceBlue.Name'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Dimensions:
+        - Name: ClusterName
+          Value : !Ref ECSCluster
+        - Name: ServiceName
+          Value: !GetAtt 'ECSServiceBlue.Name'
+      AlarmDescription: !Sub "ECS CPU使用率 ${ECSStepScaleInThreshold}%"
+      Period: 60
+      Threshold: !Ref ECSStepScaleInThreshold
+      ComparisonOperator: LessThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - !Ref StepScallingScaleInPolicyBlue
+
+  # ------------------------------------------------------------#
+  # ECS Green Service CPUUtilization Alarm (Step Scaling Scale In)
+  # ------------------------------------------------------------#
+  CPUAlarmServiceScaleInGreen:
+    Type: AWS::CloudWatch::Alarm
+    Condition: hasECSStepScaleInThreshold
+    DependsOn:
+      - StepScallingScaleInPolicyGreen
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - 'CPUUtilization Step Scale In ['
+          - !GetAtt 'ECSServiceGreen.Name'
+          - ']'
+      ActionsEnabled: true
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Dimensions:
+        - Name: ClusterName
+          Value : !Ref ECSCluster
+        - Name: ServiceName
+          Value: !GetAtt 'ECSServiceGreen.Name'
+      AlarmDescription: !Sub "ECS CPU使用率 ${ECSStepScaleInThreshold}%"
+      Period: 60
+      Threshold: !Ref ECSStepScaleInThreshold
+      ComparisonOperator: LessThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      AlarmActions:
+        - !Ref StepScallingScaleInPolicyGreen
 
   # ------------------------------------------------------------#
   # ALB HTTPCode_ELB_5XX_Count Alarm (Public)
