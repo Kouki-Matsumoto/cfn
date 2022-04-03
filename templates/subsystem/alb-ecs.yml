@@ -17,6 +17,7 @@ Metadata:
           - TaskRoleOutputName
           - UseConfigBucket
           - ALBDropInvalidHeaderFields
+          - PreSharedKey
       - Label:
           default: ECS Task Definition
         Parameters:
@@ -179,6 +180,13 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
+  # X-Pre-Shared-Key Options
+  PreSharedKey:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
 Conditions:
   isALBSchemaBoth: !Equals [!Ref ALBSchemaType, 'both']
   isProd: !Equals [!Ref ENV, prod]
@@ -192,6 +200,9 @@ Conditions:
   hasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
   hasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
   hasALBDropInvalidHeaderFields: !Equals [!Ref ALBDropInvalidHeaderFields, 'true']
+  hasPreSharedKey: !And
+    - !Equals [!Ref PreSharedKey, 'true']
+    - Condition: hasALBSchemaInternet
 
 
 Resources:
@@ -405,13 +416,20 @@ Resources:
         - !Ref "AWS::NoValue"
       SslPolicy: !Ref PublicALBSecurityPolicy
       DefaultActions:
-        - Type: forward
-          ForwardConfig:
-            TargetGroups:
-            - TargetGroupArn: !Ref ALBTargetBlue
-              Weight: 1
-            - TargetGroupArn: !Ref ALBTargetGreen
-              Weight: 0
+        - !If
+          - hasPreSharedKey
+          - Type: fixed-response
+            FixedResponseConfig:
+              ContentType: text/plain
+              StatusCode: 404
+              MessageBody: 'NotFound'
+          - Type: forward
+            ForwardConfig:
+              TargetGroups:
+              - TargetGroupArn: !Ref ALBTargetBlue
+                Weight: 1
+              - TargetGroupArn: !Ref ALBTargetGreen
+                Weight: 0
 
   # ------------------------------------------------------------#
   # ALB NotFound Listener Rule (Public)
@@ -434,6 +452,35 @@ Resources:
             ContentType: text/plain
             StatusCode: 404
             MessageBody: 'NotFound'
+
+  # ------------------------------------------------------------#
+  # ALB Pre Shared Listener Rule (Public)
+  # ------------------------------------------------------------#
+  ALBPreSharedListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: hasPreSharedKey
+    DependsOn: ALBListener
+    Properties:
+      ListenerArn: !Ref ALBListener
+      Priority: 2
+      Conditions:
+        - Field: http-header
+          HttpHeaderConfig:
+            HttpHeaderName: x-pre-shared-key
+            Values:
+              - !Ref SystemName
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - '/*'
+      Actions:
+        - Type: forward
+          ForwardConfig:
+            TargetGroups:
+            - TargetGroupArn: !Ref ALBTargetBlue
+              Weight: 1
+            - TargetGroupArn: !Ref ALBTargetGreen
+              Weight: 0
 
   # ------------------------------------------------------------#
   # ALB HTTP Listener (Public)
