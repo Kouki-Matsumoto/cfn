@@ -152,6 +152,22 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
       - arn:aws:iam::aws:policy/AdministratorAccess
 
+  ECSTaskRoleForAdministratorAccess:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-for-admin-access-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AdministratorAccess
+
   ECSServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -231,6 +247,10 @@ Outputs:
     Value: !GetAtt  ECSTaskRoleForCFnAndS3.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-cfn-s3-role
+  ECSTaskRoleForAdministratorAccess:
+    Value: !GetAtt  ECSTaskRoleForAdministratorAccess.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-admin-access-role
   S3AccessRole:
     Value: !GetAtt  S3AccessRole.Arn
     Export:
