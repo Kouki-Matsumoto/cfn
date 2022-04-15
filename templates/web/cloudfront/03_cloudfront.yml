@@ -111,6 +111,14 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
+Mappings:
+  EnvMaps:
+    Prod:
+      HostedZoneName: 'stores.play.jp.'
+      Domain: '.stores.play.jp'
+    Stg:
+      HostedZoneName: 'stg.stores.play.jp.'
+      Domain: '.stg.stores.play.jp'
 
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
@@ -134,25 +142,22 @@ Resources:
         PriceClass: PriceClass_All
         Comment: !Sub '[${ENV}] ${ServiceName}-${ENV}-${SystemName} Distribution'
         Aliases:
-          - !Join
-            - ''
-            - - !If [isProd, '', !Sub '${ENV}-']
-              - !If
-                # CustomerDomainの指定が無い場合、次の判定に進む
-                - hasNotCustomerDomain
-                - !If
-                  # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
-                  - hasNotDomainName
-                  - !Join
-                    - ''
-                    - - !Ref ProjectId
-                      - '.stores.play.jp'
-                  - !Join
-                    - ''
-                    - - !Ref DomainName
-                      - '.stores.play.jp'
-                # CustomerDomainの指定がある場合、CustomerDomainをCNAMEに使用する
-                - !Ref CustomerDomain
+          - !If
+            # CustomerDomainの指定が無い場合、次の判定に進む
+            - hasNotCustomerDomain
+            - !If
+              # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
+              - hasNotDomainName
+              - !Join
+                - ''
+                - - !Ref ProjectId
+                  - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+              - !Join
+                - ''
+                - - !Ref DomainName
+                  - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+            # CustomerDomainの指定がある場合、CustomerDomainをCNAMEに使用する
+            - !Ref CustomerDomain
         ### Origins
         Origins:
           ## Origin for ALB
@@ -163,8 +168,8 @@ Resources:
                   - TLSv1.2
             DomainName: !Join
               - ''
-              - - !If [isProd, '', !Sub '${ENV}-']
-                - !Sub ${SystemName}-lb.stores.play.jp
+              - - !Sub ${SystemName}-lb
+                - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
             Id: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
             ConnectionAttempts: 3
             ConnectionTimeout: 10
@@ -395,11 +400,11 @@ Resources:
   ALBRecord:
     Type: AWS::Route53::RecordSet
     Properties:
-      HostedZoneName: 'stores.play.jp.'
+      HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
       Name: !Join
         - ''
-        - - !If [isProd, '', !Sub '${ENV}-']
-          - !Sub ${SystemName}-lb.stores.play.jp.
+        - - !Sub ${SystemName}-lb
+          - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
       Type: A
       AliasTarget:
         DNSName: !Ref ALBDomainName
@@ -412,21 +417,18 @@ Resources:
     # Condition: hasNotCustomerDomain
     DependsOn: WebDistribution
     Properties:
-      HostedZoneName: 'stores.play.jp.'
-      Name: !Join
-        - ''
-        - - !If [isProd, '', !Sub '${ENV}-']
-          - !If
-            # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
-            - hasNotDomainName
-            - !Join
-              - ''
-              - - !Ref ProjectId
-                - '.stores.play.jp'
-            - !Join
-              - ''
-              - - !Ref DomainName
-                - '.stores.play.jp'
+      HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
+      Name: !If
+        # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
+        - hasNotDomainName
+        - !Join
+          - ''
+          - - !Ref ProjectId
+            - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+        - !Join
+          - ''
+          - - !Ref DomainName
+            - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
       Type: A
       AliasTarget:
         DNSName: !GetAtt 'WebDistribution.DomainName'
