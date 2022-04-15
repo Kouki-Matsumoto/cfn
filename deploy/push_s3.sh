@@ -8,27 +8,18 @@
 readonly env=$1
 readonly option=$2
 
-AWS_ACCOUNT_ID="845168618390"
-
-echo 'AWSアカウントチェック...'
-if aws sts get-caller-identity| grep ${AWS_ACCOUNT_ID} > /dev/null ; then
-    echo 'OK';
-else
-    echo 'NG'
-    echo 'AWSアカウントを切り替えてから実行してください。'
-    echo 'e.g. export AWS_PROFILE=<プロファイル名>'
-    exit 1
-fi
 
 
 case "${env}" in
   "stg")
     echo "--- Start for staging ---"
-    readonly bucket_name="pvs-${env}-cfn-templates-bucket"
+    readonly aws_account="179017469188"
+    readonly bucket_name="pvs-b-${env}-cfn-templates-bucket"
     readonly branch_name="staging"
     ;;
   "prod")
     echo "--- Start for production ---"
+    readonly aws_account="845168618390"
     readonly bucket_name="pvs-${env}-cfn-templates-bucket"
     readonly branch_name="master"
     ;;
@@ -38,6 +29,17 @@ case "${env}" in
     false
     exit 2
 esac
+
+
+echo 'AWSアカウントチェック...'
+if aws sts get-caller-identity| grep ${aws_account} > /dev/null ; then
+    echo 'OK';
+else
+    echo 'NG'
+    echo 'AWSアカウントを切り替えてから実行してください。'
+    echo 'e.g. export AWS_PROFILE=<プロファイル名>'
+    exit 1
+fi
 
 
 if [ $option = "dryrun" ]; then
