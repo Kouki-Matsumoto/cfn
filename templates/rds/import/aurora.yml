@@ -1,0 +1,492 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+    - Label:
+        default: Base Setting
+      Parameters:
+        - ENV
+        - ServiceName
+    - Label:
+        default: 'RDS Parameters'
+      Parameters:
+        - DBClusterName
+        - Engine
+        - DBSnapshotIdentifier
+        - DBInstanceClass
+        - DBName
+        - DBBackupRetentionPeriod
+        - DBMasterUsername
+        - DBMasterUserPassword
+        - PreferredBackupWindow
+        - PreferredMaintenanceWindow
+        - KmsKeyArn
+        - UseDefaultClusterParameterGroup
+        - UseDefaultParameterGroup
+    - Label:
+        default: 'Alerting Parameters'
+      Parameters:
+      - CPUUtilizationThreshold
+      - CPUCreditBalanceThreshold
+      - FreeableMemoryThreshold
+      - FreeLocalStorageThreshold
+      - SwapUsageThreshold
+      - ReadLatencyThreshold
+      - WriteLatencyThreshold
+
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  Engine:
+    Description: 'Aurora engine and version'
+    Type: String
+    AllowedValues:
+    - '5.6.mysql-aurora.1.19.1'
+    - '5.6.mysql-aurora.1.23.2'
+    - '5.6.mysql-aurora.1.23.4'
+    - aurora
+    - '5.7.mysql-aurora.2.03.4'
+    - '5.7.mysql-aurora.2.04.3'
+    - '5.7.mysql-aurora.2.09.2'
+    - '5.7.mysql-aurora.2.09.3'
+    - '5.7.mysql-aurora.2.10.1'
+    - '8.0.mysql-aurora.3.01.0'
+    - '8.0.mysql-aurora.3.01.1'
+    - '8.0.mysql-aurora.3.02.0'
+    - 'aurora-mysql'
+    - 'aurora-postgresql-10.14'
+    - 'aurora-postgresql-11.9'
+    - 'aurora-postgresql-11.11'
+    - 'aurora-postgresql-11.12'
+    - 'aurora-postgresql-11.13'
+    - 'aurora-postgresql-11.14'
+    - 'aurora-postgresql-11.15'
+    - 'aurora-postgresql-12.4'
+    - 'aurora-postgresql-12.8'
+    - 'aurora-postgresql-12.9'
+    - 'aurora-postgresql-12.10'
+    - 'aurora-postgresql-13.4'
+    - 'aurora-postgresql-13.5'
+    - 'aurora-postgresql-13.6'
+    Default: aurora
+
+  DBClusterName:
+    AllowedPattern: ^[a-z0-9-]*$
+    Description: 'Name of the RDS DataBase Cluster Name.'
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Type: String
+    MinLength: 1
+
+  DBSnapshotIdentifier:
+    Description: 'Optional identifier for the DB cluster snapshot from which you want to restore (leave blank to create an empty cluster).'
+    Type: String
+    Default: ''
+
+  DBInstanceClass:
+    ConstraintDescription: Node instance class not supported
+    Description: 'The instance type of database server (see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.DBInstanceClass.html).'
+    Type: String
+    AllowedPattern: ^[a-z0-9.]*$
+    Default: db.t3.small
+    AllowedValues:
+      - db.t3.small
+      - db.t3.medium
+      - db.t3.large
+      - db.t4g.medium
+      - db.t4g.large
+      - db.r5.large
+      - db.r5.xlarge
+      - db.r5.2xlarge
+      - db.r5.4xlarge
+      - db.r5.8xlarge
+      - db.r5.12xlarge
+      - db.r5.16xlarge
+      - db.r5.24xlarge
+      - db.r6g.xlarge
+      - db.r6g.2xlarge
+      - db.r6g.4xlarge
+      - db.r6g.8xlarge
+      - db.r6g.12xlarge
+      - db.r6g.16xlarge
+
+  DBName:
+    Description: 'Name of the database (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
+    Type: String
+    Default: ''
+
+  DBBackupRetentionPeriod:
+    Description: 'The number of days to keep snapshots of the cluster.'
+    Type: Number
+    MinValue: 1
+    MaxValue: 35
+    Default: 30
+
+  DBMasterUsername:
+    Description: 'The master user name for the DB instance (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
+    Type: 'String'
+    Default: master
+
+  DBMasterUserPassword:
+    Description: 'The master password for the DB instance (ignored when DBSnapshotIdentifier is set, value used from snapshot.).'
+    Type: String
+    NoEcho: true
+    Default: ''
+
+  PreferredBackupWindow:
+    Description: 'The daily time range in UTC during which you want to create automated backups.'
+    Type: String
+    Default: '09:54-10:24'
+
+  PreferredMaintenanceWindow:
+    Description: The weekly time range (in UTC) during which system maintenance can occur.
+    Type: String
+    Default: 'sat:07:00-sat:07:30'
+
+  KmsKeyArn:
+    Description: 'Optional KMS key ARN.'
+    Type: String
+    Default: ''
+
+  UseDefaultClusterParameterGroup:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
+  UseDefaultParameterGroup:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
+  CPUUtilizationThreshold:
+    Description: 'The maximum percentage of CPU usage (set to -1 to disable).'
+    Type: Number
+    Default: 80
+    MinValue: -1
+    MaxValue: 100
+
+  CPUCreditBalanceThreshold:
+    Description: 'The maximum bytes of CPU Credit Balance memory (set to -1 to disable).'
+    Type: Number
+    Default: 20
+    MinValue: -1
+
+  FreeableMemoryThreshold:
+    Description: 'The maximum bytes of Freeable Memory (set to -1 to disable).'
+    Type: Number
+    Default: 67108864 # 64 MB in Bytes
+    MinValue: -1
+
+  FreeLocalStorageThreshold:
+    Description: 'The maximum bytes of Free Local Storage (set to -1 to disable).'
+    Type: Number
+    Default: 536870912 # 512 MB in Bytes
+    MinValue: -1
+
+  SwapUsageThreshold:
+    Description: 'The maximum bytes of Swap Usage (set to -1 to disable).'
+    Type: Number
+    Default: 67108864 # 64 MB in Bytes
+    MinValue: -1
+
+  ReadLatencyThreshold:
+    Description: 'The average of Read Latency (set to -1 to disable).'
+    Type: Number
+    Default: 0.5 # 500 milliseconds
+    MinValue: -1
+
+  WriteLatencyThreshold:
+    Description: 'The average of Write Latency (set to -1 to disable).'
+    Type: Number
+    Default: 0.5 # 500 milliseconds
+    MinValue: -1
+
+
+Mappings:
+  EngineMap:
+    aurora:
+      Engine: aurora
+      EngineVersion: '5.6.10a'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora5.6'
+      ParameterGroupFamily: 'aurora5.6'
+    '5.6.mysql-aurora.1.19.1':
+      Engine: aurora
+      EngineVersion: '5.6.mysql_aurora.1.19.1'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora5.6'
+      ParameterGroupFamily: 'aurora5.6'
+    '5.6.mysql-aurora.1.23.2':
+      Engine: aurora
+      EngineVersion: '5.6.mysql_aurora.1.23.2'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora5.6'
+      ParameterGroupFamily: 'aurora5.6'
+    '5.6.mysql-aurora.1.23.4':
+      Engine: aurora
+      EngineVersion: '5.6.mysql_aurora.1.23.4'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora5.6'
+      ParameterGroupFamily: 'aurora5.6'
+    'aurora-mysql':
+      Engine: 'aurora-mysql'
+      EngineVersion: '5.7.12'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql5.7'
+      ParameterGroupFamily: 'aurora-mysql5.7'
+    '5.7.mysql-aurora.2.09.2':
+      Engine: 'aurora-mysql'
+      EngineVersion: '5.7.mysql_aurora.2.09.2'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql5.7'
+      ParameterGroupFamily: 'aurora-mysql5.7'
+    '5.7.mysql-aurora.2.09.3':
+      Engine: 'aurora-mysql'
+      EngineVersion: '5.7.mysql_aurora.2.09.3'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql5.7'
+      ParameterGroupFamily: 'aurora-mysql5.7'
+    '5.7.mysql-aurora.2.10.1':
+      Engine: 'aurora-mysql'
+      EngineVersion: '5.7.mysql_aurora.2.10.1'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql5.7'
+      ParameterGroupFamily: 'aurora-mysql5.7'
+    '5.7.mysql-aurora.2.03.4':
+      Engine: 'aurora-mysql'
+      EngineVersion: '5.7.mysql_aurora.2.03.4'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql5.7'
+      ParameterGroupFamily: 'aurora-mysql5.7'
+    '5.7.mysql-aurora.2.04.3':
+      Engine: 'aurora-mysql'
+      EngineVersion: '5.7.mysql_aurora.2.04.3'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql5.7'
+      ParameterGroupFamily: 'aurora-mysql5.7'
+    '8.0.mysql-aurora.3.01.0':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.01.0'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.01.1':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.01.1'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.02.0':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.02.0'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    'aurora-postgresql-10.4':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '10.4'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql10'
+      ParameterGroupFamily: 'aurora-postgresql10'
+    'aurora-postgresql-10.5':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '10.5'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql10'
+      ParameterGroupFamily: 'aurora-postgresql10'
+    'aurora-postgresql-10.6':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '10.6'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql10'
+      ParameterGroupFamily: 'aurora-postgresql10'
+    'aurora-postgresql-10.7':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '10.7'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql10'
+      ParameterGroupFamily: 'aurora-postgresql10'
+    'aurora-postgresql-10.14':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '10.14'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql10'
+      ParameterGroupFamily: 'aurora-postgresql10'
+    'aurora-postgresql-11.9':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '11.9'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql11'
+      ParameterGroupFamily: 'aurora-postgresql11'
+    'aurora-postgresql-11.11':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '11.11'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql11'
+      ParameterGroupFamily: 'aurora-postgresql11'
+    'aurora-postgresql-11.12':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '11.12'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql11'
+      ParameterGroupFamily: 'aurora-postgresql11'
+    'aurora-postgresql-11.13':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '11.13'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql11'
+      ParameterGroupFamily: 'aurora-postgresql11'
+    'aurora-postgresql-11.14':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '11.14'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql11'
+      ParameterGroupFamily: 'aurora-postgresql11'
+    'aurora-postgresql-11.15':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '11.15'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql11'
+      ParameterGroupFamily: 'aurora-postgresql11'
+    'aurora-postgresql-12.4':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '12.4'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql12'
+      ParameterGroupFamily: 'aurora-postgresql12'
+    'aurora-postgresql-12.8':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '12.8'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql12'
+      ParameterGroupFamily: 'aurora-postgresql12'
+    'aurora-postgresql-12.9':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '12.9'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql12'
+      ParameterGroupFamily: 'aurora-postgresql12'
+    'aurora-postgresql-12.10':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '12.10'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql12'
+      ParameterGroupFamily: 'aurora-postgresql12'
+    'aurora-postgresql-13.4':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '13.4'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql13'
+      ParameterGroupFamily: 'aurora-postgresql13'
+    'aurora-postgresql-13.5':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '13.5'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql13'
+      ParameterGroupFamily: 'aurora-postgresql13'
+    'aurora-postgresql-13.6':
+      Engine: 'aurora-postgresql'
+      EngineVersion: '13.6'
+      Port: 5432
+      ClusterParameterGroupFamily: 'aurora-postgresql13'
+      ParameterGroupFamily: 'aurora-postgresql13'
+
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref KmsKeyArn, '']]
+  HasDBSnapshotIdentifier: !Not [!Equals [!Ref DBSnapshotIdentifier, '']]
+  HasEngineMySQL: !Or [!Equals [!FindInMap [EngineMap, !Ref Engine, Engine], 'aurora'], !Equals [!FindInMap [EngineMap, !Ref Engine, Engine], 'aurora-mysql']]
+  HasNotDefaultClusterParameterGroup: !Not [!Equals [!Ref UseDefaultClusterParameterGroup, 'true']]
+  HasNotDefaultParameterGroup: !Not [!Equals [!Ref UseDefaultParameterGroup, 'true']]
+
+  HasCPUUtilizationThreshold: !Not [!Equals [!Ref CPUUtilizationThreshold, -1]]
+  HasCPUCreditBalanceThreshold: !Not [!Equals [!Ref CPUCreditBalanceThreshold, -1]]
+  HasFreeableMemoryThreshold: !Not [!Equals [!Ref FreeableMemoryThreshold, -1]]
+  HasFreeLocalStorageThreshold: !Not [!Equals [!Ref FreeLocalStorageThreshold, -1]]
+  HasSwapUsageThreshold: !Not [!Equals [!Ref SwapUsageThreshold, -1]]
+
+
+Resources:
+
+  ########################################################################################################
+  #                                             RDS
+  ########################################################################################################
+
+  DBCluster:
+    DeletionPolicy: Retain # default
+    UpdateReplacePolicy: Snapshot
+    Type: 'AWS::RDS::DBCluster'
+    Properties:
+      DBClusterIdentifier: !Ref DBClusterName
+      BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
+      DatabaseName: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !Ref DBName]
+      DBClusterParameterGroupName: !Join
+        - '.'
+        - - 'default'
+          - !FindInMap [EngineMap, !Ref Engine, ClusterParameterGroupFamily]
+      DBSubnetGroupName:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-rds-subnet-group
+      Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
+      EngineMode: provisioned
+      EngineVersion: !FindInMap [EngineMap, !Ref Engine, EngineVersion]
+      KmsKeyId: !If [HasKmsKey, !Ref KmsKeyArn, !Ref 'AWS::NoValue']
+      MasterUsername: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !Ref DBMasterUsername]
+      MasterUserPassword: !If
+      - HasDBSnapshotIdentifier
+      - !Ref 'AWS::NoValue'
+      - !Ref DBMasterUserPassword
+      Port: !FindInMap [EngineMap, !Ref Engine, Port]
+      PreferredBackupWindow: !Ref PreferredBackupWindow
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      SnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']
+      StorageEncrypted: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !If [HasKmsKey, true, false]]
+      VpcSecurityGroupIds:
+      - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+
+
+  DBInstanceA:
+    DeletionPolicy: Retain # default
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref DBCluster
+      DBInstanceClass: !Ref DBInstanceClass
+      DBParameterGroupName: !Join
+        - '.'
+        - - 'default'
+          - !FindInMap [EngineMap, !Ref Engine, ParameterGroupFamily]
+      DBSubnetGroupName:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-rds-subnet-group
+      Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
+
+  DBInstanceB:
+    DeletionPolicy: Retain # default
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref DBCluster
+      DBInstanceClass: !Ref DBInstanceClass
+      DBParameterGroupName: !Join
+        - '.'
+        - - 'default'
+          - !FindInMap [EngineMap, !Ref Engine, ParameterGroupFamily]
+      DBSubnetGroupName:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-rds-subnet-group
+      Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
