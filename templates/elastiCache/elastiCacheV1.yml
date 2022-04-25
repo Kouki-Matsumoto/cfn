@@ -48,6 +48,41 @@ Parameters:
       - cache.r4.large
       - cache.r4.xlarge
 
+  #エンジンバージョン
+  EngineVersion:
+    Description: 'Redis version'
+    Type: String
+    Default: '5.0.0'
+    AllowedValues: # aws elasticache describe-cache-engine-versions --engine redis --query "CacheEngineVersions[].EngineVersion"
+    - '3.2.6' # 3.2.4 and 3.2.10 do not support encryption
+    - '4.0.10'
+    - '5.0.0'
+    - '5.0.3'
+    - '5.0.4'
+    - '5.0.5'
+    - '5.0.6'
+    - '6.0'
+    - '6.2'
+
+Mappings:
+  EngineVersionMap:
+    '3.2.6':
+      CacheParameterGroupFamily: 'redis3.2'
+    '4.0.10':
+      CacheParameterGroupFamily: 'redis4.0'
+    '5.0.0':
+      CacheParameterGroupFamily: 'redis5.0'
+    '5.0.3':
+      CacheParameterGroupFamily: 'redis5.0'
+    '5.0.4':
+      CacheParameterGroupFamily: 'redis5.0'
+    '5.0.5':
+      CacheParameterGroupFamily: 'redis5.0'
+    '5.0.6':
+      CacheParameterGroupFamily: 'redis5.0'
+    '6.x':
+      CacheParameterGroupFamily: 'redis6.x'
+
 Conditions:
   isClusterMode: !Equals [!Ref ClusterMode, 'enable']
   isNotClusterMode: !Not [!Equals [!Ref ClusterMode, 'enable']]
@@ -94,6 +129,52 @@ Resources:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
       SecurityGroupIds:
         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+
+
+  Node1DatabaseMemoryUsagePercentageTooHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'ElastiCacheノード メモリ使用率80%以上/5分間発生'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: DatabaseMemoryUsagePercentage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 80.0
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+      - Name: CacheClusterId
+        Value: !Join
+          - '-'
+          - - !If [isClusterMode, !Sub '${ClusteredRedis}', !Sub '${Redis}']
+            - '001'
+
+  Node2DatabaseMemoryUsagePercentageTooHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'ElastiCacheノード メモリ使用率80%以上/5分間発生'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: DatabaseMemoryUsagePercentage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 80.0
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+      - Name: CacheClusterId
+        Value: !Join
+          - '-'
+          - - !If [isClusterMode, !Sub '${ClusteredRedis}', !Sub '${Redis}']
+            - '002'
+
 
 Outputs:
   EndPointAddress:

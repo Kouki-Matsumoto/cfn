@@ -1,0 +1,1195 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'ElastiCache redis template'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+    - Label:
+        default: 'System Parameters'
+      Parameters:
+      - ENV
+      - ServiceName
+      - SystemName
+    - Label:
+        default: 'ElastiCache Parameters'
+      Parameters:
+      - EngineVersion
+      - CacheNodeType
+      - TransitEncryption
+      - SnapshotRetentionLimit
+      - SnapshotName
+      - NumShards
+      - NumReplicas
+    - Label:
+        default: 'Alerting Parameters'
+      Parameters:
+      - CPUUtilizationThreshold
+      - DatabaseMemoryUsagePercentageThreshold
+      - SwapUsageThreshold
+      - EvictionsThreshold
+      - ReplicationLagThreshold
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+  #システム名
+  SystemName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「token-manager」
+
+
+  EngineVersion:
+    Description: 'Redis version'
+    Type: String
+    Default: '5.0.0'
+    AllowedValues: # aws elasticache describe-cache-engine-versions --engine redis --query "CacheEngineVersions[].EngineVersion"
+    - '3.2.6' # 3.2.4 and 3.2.10 do not support encryption
+    - '4.0.10'
+    - '5.0.0'
+    - '5.0.3'
+    - '5.0.4'
+    - '5.0.5'
+    - '5.0.6'
+    - '6.0'
+    - '6.2'
+
+  #ノードタイプ
+  CacheNodeType:
+    Type: String
+    Default: cache.t3.micro
+    ConstraintDescription: Node instance class not supported
+    Description: Select one Cache Node Type, like 「cache.t3.micro」
+    AllowedPattern: ^[a-z0-9.]*$
+    AllowedValues:
+      - cache.t2.micro
+      - cache.t2.small
+      - cache.t2.medium
+      - cache.t3.micro
+      - cache.t3.small
+      - cache.t3.medium
+      - cache.t4g.micro
+      - cache.t4g.small
+      - cache.t4g.medium
+      - cache.m4.large
+      - cache.m4.xlarge
+      - cache.m4.2xlarge
+      - cache.m4.4xlarge
+      - cache.m4.10xlarge
+      - cache.m5.large
+      - cache.m5.xlarge
+      - cache.m5.2xlarge
+      - cache.m5.4xlarge
+      - cache.m5.12xlarge
+      - cache.m5.24xlarge
+      - cache.m6g.large
+      - cache.m6g.xlarge
+      - cache.m6g.2xlarge
+      - cache.m6g.4xlarge
+      - cache.m6g.8xlarge
+      - cache.m6g.12xlarge
+      - cache.m6g.16xlarge
+      - cache.r4.large
+      - cache.r4.xlarge
+
+  TransitEncryption:
+    Description: 'Enable encryption for data in transit? (see https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/in-transit-encryption.html)'
+    Type: 'String'
+    Default: 'true'
+    AllowedValues:
+    - 'true'
+    - 'false'
+
+  SnapshotRetentionLimit:
+    Description: 'The number of days for which ElastiCache retains automatic snapshots before deleting them (set to 0 to disable backups).'
+    Type: Number
+    Default: 35
+    MinValue: 0
+    MaxValue: 35
+
+  SnapshotName:
+    Description: 'Optional name of a snapshot from which you want to restore (leave blank to create an empty cache).'
+    Type: 'String'
+    Default: ''
+
+  NumShards:
+    Description: 'Number of shards in the cluster.'
+    Type: 'Number'
+    Default: 1
+    MinValue: 1
+    MaxValue: 250
+
+  NumReplicas:
+    Description: 'Number of replicas per shard.'
+    Type: 'Number'
+    Default: 1
+    MinValue: 0
+    MaxValue: 5
+
+  CPUUtilizationThreshold:
+    Description: 'The maximum percentage of CPU usage (set to -1 to disable).'
+    Type: Number
+    Default: 80
+    MinValue: -1
+    MaxValue: 100
+
+  DatabaseMemoryUsagePercentageThreshold:
+    Description: 'The maximum percentage of memory usage (set to -1 to disable).'
+    Type: Number
+    Default: 90
+    MinValue: -1
+    MaxValue: 100
+
+  SwapUsageThreshold:
+    Description: 'The maximum bytes of swap usage (set to -1 to disable).'
+    Type: Number
+    Default: 67108864 # 64 MB in Bytes
+    MinValue: -1
+
+  EvictionsThreshold:
+    Description: 'The maximum number of evictions (set to -1 to disable).'
+    Type: Number
+    Default: 1000
+    MinValue: -1
+
+  ReplicationLagThreshold:
+    Description: 'The maximum seconds of replication lag (set to -1 to disable).'
+    Type: Number
+    Default: 30
+    MinValue: -1
+
+Mappings:
+  EngineVersionMap:
+    '3.2.6':
+      CacheParameterGroupFamily: 'redis3.2'
+    '4.0.10':
+      CacheParameterGroupFamily: 'redis4.0'
+    '5.0.0':
+      CacheParameterGroupFamily: 'redis5.0'
+    '5.0.3':
+      CacheParameterGroupFamily: 'redis5.0'
+    '5.0.4':
+      CacheParameterGroupFamily: 'redis5.0'
+    '5.0.5':
+      CacheParameterGroupFamily: 'redis5.0'
+    '5.0.6':
+      CacheParameterGroupFamily: 'redis5.0'
+    '6.0':
+      CacheParameterGroupFamily: 'redis6.x'
+    '6.2':
+      CacheParameterGroupFamily: 'redis6.x'
+
+Conditions:
+  HasSnapshotName: !Not [!Equals [!Ref SnapshotName, '']]
+  HasAutomaticFailoverEnabled: !Not [!Equals [!Ref NumReplicas, 0]]
+
+  HasCPUUtilizationThresholdAndAlertTopic: !Not [!Equals [!Ref CPUUtilizationThreshold, '']]
+  HasDatabaseMemoryUsagePercentageThresholdAndAlertTopic: !Not [!Equals [!Ref DatabaseMemoryUsagePercentageThreshold, '']]
+  HasSwapUsageThresholdAndAlertTopic: !Not [!Equals [!Ref SwapUsageThreshold, '']]
+  HasEvictionsThresholdAndAlertTopic: !Not [!Equals [!Ref EvictionsThreshold, '']]
+  HasReplicationLagThresholdAndAlertTopic: !Not [!Equals [!Ref ReplicationLagThreshold, '']]
+
+  HasClusterModeEnabled: !Not [!Equals [!Ref NumShards, 1]]
+  HasClusterModeDisabled: !Not [!Condition HasClusterModeEnabled]
+
+  HasClusterAndCPUUtilizationThresholdAndAlertTopic: !And
+    - Condition: HasCPUUtilizationThresholdAndAlertTopic
+    - Condition: HasClusterModeEnabled
+  HasClusterAndDatabaseMemoryUsagePercentageThresholdAndAlertTopic: !And
+    - Condition: HasDatabaseMemoryUsagePercentageThresholdAndAlertTopic
+    - Condition: HasClusterModeEnabled
+  HasClusterAndSwapUsageThresholdAndAlertTopic: !And
+    - Condition: HasSwapUsageThresholdAndAlertTopic
+    - Condition: HasClusterModeEnabled
+  HasClusterAndEvictionsThresholdAndAlertTopic: !And
+    - Condition: HasEvictionsThresholdAndAlertTopic
+    - Condition: HasClusterModeEnabled
+  HasClusterAndReplicationLagThresholdAndAlertTopic: !And
+    - Condition: HasReplicationLagThresholdAndAlertTopic
+    - Condition: HasClusterModeEnabled
+
+Resources:
+
+  ########################################################################################################
+  #                                        ElastiCache
+  ########################################################################################################
+
+  ReplicationGroup:
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Type: 'AWS::ElastiCache::ReplicationGroup'
+    Properties:
+      ReplicationGroupId: !Sub ${ServiceName}-${ENV}-${SystemName}
+      ReplicationGroupDescription: !Sub ${ServiceName}-${ENV}-${SystemName}
+      AtRestEncryptionEnabled: true
+      AutomaticFailoverEnabled: !If [HasAutomaticFailoverEnabled, true, false]
+      MultiAZEnabled: !If [HasAutomaticFailoverEnabled, true, false]
+      CacheNodeType: !Ref CacheNodeType
+      CacheParameterGroupName: !Join
+        - ''
+        - - 'default.'
+          - !FindInMap [EngineVersionMap, !Ref EngineVersion, CacheParameterGroupFamily]
+          - !If [HasClusterModeEnabled, '.cluster.on', '']
+      Engine: redis
+      EngineVersion: !Ref EngineVersion
+      NotificationTopicArn:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      NumNodeGroups: !Ref NumShards
+      ReplicasPerNodeGroup: !Ref NumReplicas
+      PreferredMaintenanceWindow: 'sat:07:00-sat:08:00'
+      CacheSubnetGroupName:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+      SnapshotName: !If [HasSnapshotName, !Ref SnapshotName, !Ref 'AWS::NoValue']
+      SnapshotRetentionLimit: !Ref SnapshotRetentionLimit
+      SnapshotWindow: '00:00-03:00'
+      TransitEncryptionEnabled: !Ref TransitEncryption
+    UpdatePolicy:
+      UseOnlineResharding: true
+
+  ########################################################################################################
+  #                                        CloudWatch Alarms
+  #                   ※シャード数、ノード数で動的に追加できないため、必要数に応じて追加・削除する
+  ########################################################################################################
+
+  ####################################### CPUUtilization Too High Alarm (Shard1) ############################################
+
+  Shard1Node1CPUUtilizationTooHighAlarm:
+    Condition: HasCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-001'
+
+  Shard1Node2CPUUtilizationTooHighAlarm:
+    Condition: HasCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-002'
+
+  Shard1Node3CPUUtilizationTooHighAlarm:
+    Condition: HasCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-003'
+
+  ####################################### CPUUtilization Too High Alarm (Shard2) ############################################
+
+  Shard2Node1CPUUtilizationTooHighAlarm:
+    Condition: HasClusterAndCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-001'
+
+  Shard2Node2CPUUtilizationTooHighAlarm:
+    Condition: HasClusterAndCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-002'
+
+  Shard2Node3CPUUtilizationTooHighAlarm:
+    Condition: HasClusterAndCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-003'
+
+  ####################################### Engine CPUUtilization Too High Alarm (Shard1) ############################################
+
+  # EngineCPUUtilizationTooHighAlarm
+  Shard1Node1EngineCPUUtilizationTooHighAlarm:
+    Condition: HasCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average engine CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: EngineCPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-001'
+
+  Shard1Node2EngineCPUUtilizationTooHighAlarm:
+    Condition: HasCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average engine CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: EngineCPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-002'
+
+  Shard1Node3EngineCPUUtilizationTooHighAlarm:
+    Condition: HasCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average engine CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: EngineCPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-003'
+
+  ####################################### Engine CPUUtilization Too High Alarm (Shard2) ############################################
+
+  Shard2Node1EngineCPUUtilizationTooHighAlarm:
+    Condition: HasClusterAndCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average engine CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: EngineCPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-001'
+
+  Shard2Node2EngineCPUUtilizationTooHighAlarm:
+    Condition: HasClusterAndCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average engine CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: EngineCPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-002'
+
+  Shard2Node3EngineCPUUtilizationTooHighAlarm:
+    Condition: HasClusterAndCPUUtilizationThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average engine CPU utilization over last 5 minutes higher than ${CPUUtilizationThreshold}%'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: EngineCPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref CPUUtilizationThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-003'
+
+  ####################################### Database Memory Usage Percentage Too High Alarm (Shard1) ############################################
+
+  # DatabaseMemoryUsagePercentageTooHighAlarm
+  Shard1Node1DatabaseMemoryUsagePercentageTooHighAlarm:
+    Condition: HasDatabaseMemoryUsagePercentageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average memory usage over last 5 minutes higher than ${DatabaseMemoryUsagePercentageThreshold}, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: DatabaseMemoryUsagePercentage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref DatabaseMemoryUsagePercentageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-001'
+
+  Shard1Node2DatabaseMemoryUsagePercentageTooHighAlarm:
+    Condition: HasDatabaseMemoryUsagePercentageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average memory usage over last 5 minutes higher than ${DatabaseMemoryUsagePercentageThreshold}, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: DatabaseMemoryUsagePercentage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref DatabaseMemoryUsagePercentageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-002'
+
+  Shard1Node3DatabaseMemoryUsagePercentageTooHighAlarm:
+    Condition: HasDatabaseMemoryUsagePercentageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average memory usage over last 5 minutes higher than ${DatabaseMemoryUsagePercentageThreshold}, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: DatabaseMemoryUsagePercentage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref DatabaseMemoryUsagePercentageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-003'
+
+  ####################################### Database Memory Usage Percentage Too High Alarm (Shard2) ############################################
+
+  Shard2Node1DatabaseMemoryUsagePercentageTooHighAlarm:
+    Condition: HasClusterAndDatabaseMemoryUsagePercentageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average memory usage over last 5 minutes higher than ${DatabaseMemoryUsagePercentageThreshold}, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: DatabaseMemoryUsagePercentage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref DatabaseMemoryUsagePercentageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-001'
+
+  Shard2Node2DatabaseMemoryUsagePercentageTooHighAlarm:
+    Condition: HasClusterAndDatabaseMemoryUsagePercentageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average memory usage over last 5 minutes higher than ${DatabaseMemoryUsagePercentageThreshold}, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: DatabaseMemoryUsagePercentage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref DatabaseMemoryUsagePercentageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-002'
+
+  Shard2Node3DatabaseMemoryUsagePercentageTooHighAlarm:
+    Condition: HasClusterAndDatabaseMemoryUsagePercentageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average memory usage over last 5 minutes higher than ${DatabaseMemoryUsagePercentageThreshold}, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: DatabaseMemoryUsagePercentage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref DatabaseMemoryUsagePercentageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-003'
+
+  ####################################### Swap Usage Too High Alarm (Shard1) ############################################
+
+  # SwapUsageTooHighAlarm
+  Shard1Node1SwapUsageTooHighAlarm:
+    Condition: HasSwapUsageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average swap usage over last 5 minutes higher than ${SwapUsageThreshold} bytes, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: SwapUsage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref SwapUsageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-001'
+
+  Shard1Node2SwapUsageTooHighAlarm:
+    Condition: HasSwapUsageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average swap usage over last 5 minutes higher than ${SwapUsageThreshold} bytes, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: SwapUsage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref SwapUsageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-002'
+
+  Shard1Node3SwapUsageTooHighAlarm:
+    Condition: HasSwapUsageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average swap usage over last 5 minutes higher than ${SwapUsageThreshold} bytes, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: SwapUsage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref SwapUsageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-003'
+
+  ####################################### Swap Usage Too High Alarm (Shard2) ############################################
+
+  Shard2Node1SwapUsageTooHighAlarm:
+    Condition: HasClusterAndSwapUsageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average swap usage over last 5 minutes higher than ${SwapUsageThreshold} bytes, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: SwapUsage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref SwapUsageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-001'
+
+  Shard2Node2SwapUsageTooHighAlarm:
+    Condition: HasClusterAndSwapUsageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average swap usage over last 5 minutes higher than ${SwapUsageThreshold} bytes, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: SwapUsage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref SwapUsageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-002'
+
+  Shard2Node3SwapUsageTooHighAlarm:
+    Condition: HasClusterAndSwapUsageThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average swap usage over last 5 minutes higher than ${SwapUsageThreshold} bytes, performance may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: SwapUsage
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref SwapUsageThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-003'
+
+  ####################################### Evictions Too High Alarm (Shard1) ############################################
+
+  # EvictionsTooHighAlarm
+  Shard1Node1EvictionsTooHighAlarm:
+    Condition: HasEvictionsThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average evictions over last 5 minutes higher than ${EvictionsThreshold}, cache hit ratio may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: Evictions
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref EvictionsThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-001'
+
+  Shard1Node2EvictionsTooHighAlarm:
+    Condition: HasEvictionsThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average evictions over last 5 minutes higher than ${EvictionsThreshold}, cache hit ratio may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: Evictions
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref EvictionsThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-002'
+
+  Shard1Node3EvictionsTooHighAlarm:
+    Condition: HasEvictionsThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average evictions over last 5 minutes higher than ${EvictionsThreshold}, cache hit ratio may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: Evictions
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref EvictionsThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-003'
+
+  ####################################### Evictions Too High Alarm (Shard2) ############################################
+
+  Shard2Node1EvictionsTooHighAlarm:
+    Condition: HasClusterAndEvictionsThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average evictions over last 5 minutes higher than ${EvictionsThreshold}, cache hit ratio may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: Evictions
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref EvictionsThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-001'
+
+  Shard2Node2EvictionsTooHighAlarm:
+    Condition: HasClusterAndEvictionsThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average evictions over last 5 minutes higher than ${EvictionsThreshold}, cache hit ratio may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: Evictions
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref EvictionsThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-002'
+
+  Shard2Node3EvictionsTooHighAlarm:
+    Condition: HasClusterAndEvictionsThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average evictions over last 5 minutes higher than ${EvictionsThreshold}, cache hit ratio may suffer'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: Evictions
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref EvictionsThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-003'
+
+  ####################################### Replication Lag Too High Alarm (Shard1) ############################################
+
+  # ReplicationLagTooHighAlarm
+  Shard1Node1ReplicationLagTooHighAlarm:
+    Condition: HasReplicationLagThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average replication lag over last 5 minutes higher than ${ReplicationLagThreshold} seconds'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: ReplicationLag
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref ReplicationLagThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-001'
+
+  Shard1Node2ReplicationLagTooHighAlarm:
+    Condition: HasReplicationLagThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average replication lag over last 5 minutes higher than ${ReplicationLagThreshold} seconds'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: ReplicationLag
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref ReplicationLagThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-002'
+
+  Shard1Node3ReplicationLagTooHighAlarm:
+    Condition: HasReplicationLagThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average replication lag over last 5 minutes higher than ${ReplicationLagThreshold} seconds'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: ReplicationLag
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref ReplicationLagThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0001', '']
+              - '-003'
+
+  ####################################### Replication Lag Too High Alarm (Shard2) ############################################
+
+  Shard2Node1ReplicationLagTooHighAlarm:
+    Condition: HasClusterAndReplicationLagThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average replication lag over last 5 minutes higher than ${ReplicationLagThreshold} seconds'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: ReplicationLag
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref ReplicationLagThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-001'
+
+  Shard2Node2ReplicationLagTooHighAlarm:
+    Condition: HasClusterAndReplicationLagThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average replication lag over last 5 minutes higher than ${ReplicationLagThreshold} seconds'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: ReplicationLag
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref ReplicationLagThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-002'
+
+  Shard2Node3ReplicationLagTooHighAlarm:
+    Condition: HasClusterAndReplicationLagThresholdAndAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: !Sub 'Average replication lag over last 5 minutes higher than ${ReplicationLagThreshold} seconds'
+      Namespace: 'AWS/ElastiCache'
+      MetricName: ReplicationLag
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref ReplicationLagThreshold
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Join
+            - ''
+            - - !Sub '${ReplicationGroup}'
+              - !If [HasClusterModeEnabled, '-0002', '']
+              - '-003'
+
+Outputs:
+
+  ClusterName:
+    Description: 'The name of the cluster'
+    Value: !Ref ReplicationGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterName'
+
+  PrimaryEndPointAddress:
+    Condition: HasClusterModeDisabled
+    Description: 'The DNS address of the primary read-write cache node.'
+    Value: !GetAtt 'ReplicationGroup.PrimaryEndPoint.Address'
+    Export:
+      Name: !Sub '${AWS::StackName}-PrimaryEndPointAddress'
+
+  PrimaryEndPointPort:
+    Condition: HasClusterModeDisabled
+    Description: 'The port that the primary read-write cache engine is listening on.'
+    Value: !GetAtt 'ReplicationGroup.PrimaryEndPoint.Port'
+    Export:
+      Name: !Sub '${AWS::StackName}-PrimaryEndPointPort'
+
+  ConfigurationEndPointAddress:
+    Condition: HasClusterModeEnabled
+    Description: 'The DNS address of the configuration node.'
+    Value: !GetAtt 'ReplicationGroup.ConfigurationEndPoint.Address'
+    Export:
+      Name: !Sub '${AWS::StackName}-ConfigurationEndPointAddress'
+
+  ConfigurationEndPointPort:
+    Condition: HasClusterModeEnabled
+    Description: 'The port of the configuration node.'
+    Value: !GetAtt 'ReplicationGroup.ConfigurationEndPoint.Port'
+    Export:
+      Name: !Sub '${AWS::StackName}-ConfigurationEndPointPort'
