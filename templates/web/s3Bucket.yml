@@ -22,8 +22,16 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
     Description: Enter project id, like 「tipness」,「shiki」
 
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
+  hasMigrationHubServerID: !Not [ !Equals [!Ref MigrationHubServerID, ''] ]
 
 Resources:
   # Project Image on S3 Bucket
@@ -58,6 +66,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - hasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 Outputs:
   ProjectImageBucketName:
