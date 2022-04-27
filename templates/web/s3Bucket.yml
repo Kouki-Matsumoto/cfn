@@ -25,13 +25,12 @@ Parameters:
   # MigrationHubServerID
   MigrationHubServerID:
     Type: String
-    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
     Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
     Default: ''
 
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
-  hasMigrationHubServerID: !Not [ !Equals [!Ref MigrationHubServerID, ''] ]
+  hasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
   # Project Image on S3 Bucket
