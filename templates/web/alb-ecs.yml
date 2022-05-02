@@ -29,6 +29,10 @@ Metadata:
           - ECSTargetTracking
           - ECSStepScaleOutThreshold
           - ECSStepScaleInThreshold
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
 
 #スタックパラメーター設定
 Parameters:
@@ -169,13 +173,20 @@ Parameters:
     Default: 'ELBSecurityPolicy-2016-08'
     ConstraintDescription: Select Security policy for Public ALB."
 
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
-  hasProjectId: !Not [!Equals [!Ref ProjectId, '']]
-  hasNotMaterECR: !Equals [!Ref MasterECRSystemName, '']
-  hasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
-  hasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
-
+  HasProjectId: !Not [!Equals [!Ref ProjectId, '']]
+  HasNotMaterECR: !Equals [!Ref MasterECRSystemName, '']
+  HasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
+  HasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
 
@@ -209,6 +220,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Green TargetGroup
@@ -238,6 +254,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### Application Load Balancer ############################################
 
@@ -281,6 +302,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### ALB Listener ############################################
 
@@ -358,7 +384,7 @@ Resources:
   # ------------------------------------------------------------#
   ECR:
     Type: AWS::ECR::Repository
-    Condition: hasNotMaterECR
+    Condition: HasNotMaterECR
     Properties:
       RepositoryName: !Sub ${SystemName}-${ENV}
       Tags:
@@ -372,6 +398,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### ECS ############################################
 
@@ -396,6 +427,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ECS Blue TaskDefinition
@@ -416,7 +452,7 @@ Resources:
       ContainerDefinitions:
         - Name: !Sub ${SystemName}-${ENV}-blue
           Image: !If
-            - hasNotMaterECR
+            - HasNotMaterECR
             - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue
             - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MasterECRSystemName}-${ENV}:${ENV}-blue
           PortMappings:
@@ -431,7 +467,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasProjectId
+              - HasProjectId
               - Name: 'PROJECT_ID'
                 Value: !Ref ProjectId
               - !Ref 'AWS::NoValue'
@@ -446,6 +482,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ECS Green TaskDefinition
@@ -466,7 +507,7 @@ Resources:
       ContainerDefinitions:
         - Name: !Sub ${SystemName}-${ENV}-green
           Image: !If
-            - hasNotMaterECR
+            - HasNotMaterECR
             - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green
             - !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MasterECRSystemName}-${ENV}:${ENV}-green
           PortMappings:
@@ -481,7 +522,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasProjectId
+              - HasProjectId
               - Name: 'PROJECT_ID'
                 Value: !Ref ProjectId
               - !Ref 'AWS::NoValue'
@@ -496,6 +537,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ECS Blue Service
@@ -534,6 +580,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ECS Green Service
@@ -572,6 +623,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### AutoScaling ############################################
 
@@ -650,7 +706,7 @@ Resources:
   # ------------------------------------------------------------#
   StepScallingScaleOutPolicyBlue:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasECSStepScaleOutThreshold
+    Condition: HasECSStepScaleOutThreshold
     DependsOn:
       - ECSServiceBlue
     Properties:
@@ -673,7 +729,7 @@ Resources:
   # ------------------------------------------------------------#
   StepScallingScaleOutPolicyGreen:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasECSStepScaleOutThreshold
+    Condition: HasECSStepScaleOutThreshold
     DependsOn:
       - ECSServiceGreen
     Properties:
@@ -696,7 +752,7 @@ Resources:
   # ------------------------------------------------------------#
   StepScallingScaleInPolicyBlue:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasECSStepScaleInThreshold
+    Condition: HasECSStepScaleInThreshold
     DependsOn:
       - ECSServiceBlue
     Properties:
@@ -723,7 +779,7 @@ Resources:
   # ------------------------------------------------------------#
   StepScallingScaleInPolicyGreen:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasECSStepScaleInThreshold
+    Condition: HasECSStepScaleInThreshold
     DependsOn:
       - ECSServiceGreen
     Properties:
@@ -816,7 +872,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceScaleOutBlue:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasECSStepScaleOutThreshold
+    Condition: HasECSStepScaleOutThreshold
     DependsOn:
       - StepScallingScaleOutPolicyBlue
     Properties:
@@ -849,7 +905,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceScaleOutGreen:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasECSStepScaleOutThreshold
+    Condition: HasECSStepScaleOutThreshold
     DependsOn:
       - StepScallingScaleOutPolicyGreen
     Properties:
@@ -881,7 +937,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceScaleInBlue:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasECSStepScaleInThreshold
+    Condition: HasECSStepScaleInThreshold
     DependsOn:
       - StepScallingScaleInPolicyBlue
     Properties:
@@ -914,7 +970,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceScaleInGreen:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasECSStepScaleInThreshold
+    Condition: HasECSStepScaleInThreshold
     DependsOn:
       - StepScallingScaleInPolicyGreen
     Properties:
@@ -1037,13 +1093,13 @@ Resources:
 Outputs:
   ECRepository:
     Description: EC Repository Path
-    Value: !If [hasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}", ""]
+    Value: !If [HasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}", ""]
   ECRBlue:
     Description: EC Repository Path
-    Value: !If [hasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue", ""]
+    Value: !If [HasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-blue", ""]
   ECRGreen:
     Description: EC Repository Path
-    Value: !If [hasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green", ""]
+    Value: !If [HasNotMaterECR, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:${ENV}-green", ""]
   ALBListener:
     Description: ALB Listener ARN
     Value: !Ref ALBListener

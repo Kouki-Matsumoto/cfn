@@ -45,11 +45,6 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
     Description: Enter project id, like 「tipness」,「shiki」
 
-  AllowedIps:
-    Description: Comma-separated list of allowed IP CIDR blocks. The default addresses listed are BitBucket Cloud IP ranges.
-    Type: CommaDelimitedList
-    Default: 113.43.239.66/32,122.221.102.154/32,113.42.102.154/32,124.36.35.82/32
-
   # MigrationHubServerID
   MigrationHubServerID:
     Type: String
@@ -58,21 +53,38 @@ Parameters:
     Default: ''
 
 Conditions:
-  hasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
-  # Closed IPset for CloudFront
-  CFWAFv2IPSet:
-    Type: AWS::WAFv2::IPSet
+  # WEB ACL
+  WAFv2WebACL:
+    Type: AWS::WAFv2::WebACL
     Properties:
-      Addresses: !Ref AllowedIps
-      Description: !Sub ${ServiceName}-${ENV}-${SystemName} IPset to CloudFront closed
-      IPAddressVersion: IPV4
-      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-closed
-      Scope: CLOUDFRONT
+      DefaultAction:
+        Block: {}
+      Name: !Sub  ${ServiceName}-${ENV}-${SystemName}-webacl
+      Description: !Sub ${ServiceName}-${ENV}-${SystemName} WebACL
+      Rules:
+        - Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-rule
+          Action:
+              Allow: {}
+          Priority: 0
+          Statement:
+            IPSetReferenceStatement:
+              Arn:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-ipset-arn
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-closed
+            SampledRequestsEnabled: true
+      Scope: "CLOUDFRONT"
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl
+        SampledRequestsEnabled: true
       Tags:
       - Key: Name
-        Value: !Sub ${SystemName}-${ENV}-ipset
+        Value: !Sub ${SystemName}-${ENV}-webacl
       - Key: ENV
         Value: !Ref ENV
       - Key: Project
@@ -82,17 +94,17 @@ Resources:
       - Key: ProjectId
         Value: !Ref ProjectId
       - !If
-        - hasMigrationHubServerID
+        - HasMigrationHubServerID
         - Key: map-migrated
           Value: !Ref MigrationHubServerID
         - !Ref AWS::NoValue
 
 Outputs:
-  CFIPsetArn:
-    Value: !GetAtt 'CFWAFv2IPSet.Arn'
+  WebACLArn:
+    Value: !GetAtt 'WAFv2WebACL.Arn'
     Export:
-      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-ipset-arn
-  CFIPsetId:
-    Value: !GetAtt 'CFWAFv2IPSet.Id'
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
+  WebACLId:
+    Value: !GetAtt 'WAFv2WebACL.Id'
     Export:
-      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-ipset-id
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-id

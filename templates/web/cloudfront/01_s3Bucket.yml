@@ -1,4 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -14,6 +28,16 @@ Parameters:
     Default: pvs
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
     Description: Enter service name, like 「pvs」
+
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
+Conditions:
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
   # CloudFront Logs on S3 Bucket
@@ -39,6 +63,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   ######################### Stores on S3 Bucket #########################
 
@@ -68,6 +97,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # S3Bucket Policy To Allow Access From CloudFront OAI
   StoresBucketPolicy:
@@ -115,6 +149,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # S3Bucket Policy To Allow Access From CloudFront OAI
   SitemapBucketPolicy:
@@ -162,6 +201,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # Stores Bucket Origin Access Identity
   SorryPagesBucketOriginAccessIdentity:

@@ -129,14 +129,14 @@ Mappings:
 
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
-  hasWebACL: !Or [!Equals [!Ref AttachWebACL, 'true'], !Equals [!Ref MaintenanceMode, 'true']]
-  hasNotDomainName: !Equals [!Ref DomainName, '']
-  hasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
-  hasCustomerDomain: !Not [Condition: hasNotCustomerDomain]
-  hasCustomerStaticPages: !Equals [!Ref CustomerStaticPages, 'true']
+  HasWebACL: !Or [!Equals [!Ref AttachWebACL, 'true'], !Equals [!Ref MaintenanceMode, 'true']]
+  HasNotDomainName: !Equals [!Ref DomainName, '']
+  HasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
+  HasCustomerDomain: !Not [Condition: HasNotCustomerDomain]
+  HasCustomerStaticPages: !Equals [!Ref CustomerStaticPages, 'true']
   enableBasicAuth: !Equals [!Ref BasicAuth, 'true']
   enableMaintenanceMode: !Equals [!Ref MaintenanceMode, 'true']
-  hasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
 
@@ -155,10 +155,10 @@ Resources:
             - - !If [isProd, '', !Sub '${ENV}-']
               - !If
                 # CustomerDomainの指定が無い場合、次の判定に進む
-                - hasNotCustomerDomain
+                - HasNotCustomerDomain
                 - !If
                   # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
-                  - hasNotDomainName
+                  - HasNotDomainName
                   - !Join
                     - ''
                     - - !Ref ProjectId
@@ -225,7 +225,7 @@ Resources:
 
           ## Origin for Customer Static Pages
           - !If
-            - hasCustomerStaticPages
+            - HasCustomerStaticPages
             - DomainName: !GetAtt  StaticPagesBucket.DomainName
               Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               S3OriginConfig:
@@ -373,7 +373,7 @@ Resources:
               - '.s3.amazonaws.com'
           Prefix: !Sub web/${ProjectId}/
         WebACLId: !If
-            - hasWebACL
+            - HasWebACL
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
             - !Ref AWS::NoValue
 
@@ -406,7 +406,7 @@ Resources:
         - Key: ProjectId
           Value: !Ref ProjectId
         - !If
-          - hasMigrationHubServerID
+          - HasMigrationHubServerID
           - Key: map-migrated
             Value: !Ref MigrationHubServerID
           - !Ref AWS::NoValue
@@ -432,7 +432,7 @@ Resources:
   CFRecord:
     Type: AWS::Route53::RecordSet
     # 先方ドメインを使用するしないに関わらずRoute53にレコードを作成する
-    # Condition: hasNotCustomerDomain
+    # Condition: HasNotCustomerDomain
     DependsOn: WebDistribution
     Properties:
       HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
@@ -441,7 +441,7 @@ Resources:
         - - !If [isProd, '', !Sub '${ENV}-']
           - !If
             # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
-            - hasNotDomainName
+            - HasNotDomainName
             - !Join
               - ''
               - - !Ref ProjectId
@@ -461,7 +461,7 @@ Resources:
   StaticPagesBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
-    Condition: hasCustomerStaticPages
+    Condition: HasCustomerStaticPages
     Properties:
       BucketName: !Sub ${ServiceName}-${ENV}-${SystemName}-static-pages-bucket
       LifecycleConfiguration:
@@ -488,7 +488,7 @@ Resources:
         - Key: ProjectId
           Value: !Ref ProjectId
         - !If
-          - hasMigrationHubServerID
+          - HasMigrationHubServerID
           - Key: map-migrated
             Value: !Ref MigrationHubServerID
           - !Ref AWS::NoValue
@@ -496,7 +496,7 @@ Resources:
   # S3Bucket Policy To Allow Access From CloudFront OAI
   StaticPagesBucketPolicy:
     Type: AWS::S3::BucketPolicy
-    Condition: hasCustomerStaticPages
+    Condition: HasCustomerStaticPages
     Properties:
       Bucket: !Ref StaticPagesBucket
       PolicyDocument:
@@ -544,7 +544,7 @@ Resources:
   # ACM DaysToExpiry
   ACMDaysToExpiry:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasCustomerDomain
+    Condition: HasCustomerDomain
     Properties:
       AlarmName: !Sub 'ACM DaysToExpiry [${CustomerDomain}]'
       AlarmDescription: 'ACM証明書有効期限 15日前'

@@ -137,15 +137,15 @@ Mappings:
 
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
-  hasWebACL: !Or [!Equals [!Ref AttachWebACL, 'true'], !Equals [!Ref MaintenanceMode, 'true']]
-  hasNotDomainName: !Equals [!Ref DomainName, '']
-  hasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
-  hasCustomerDomain: !Not [Condition: hasNotCustomerDomain]
-  hasCustomerStaticPagesBucketDomainName: !Not [!Equals [!Ref CustomerStaticPagesBucketDomainName, '']]
-  hasExternalDomainName: !Not [!Equals [!Ref ExternalDomainName, '']]
+  HasWebACL: !Or [!Equals [!Ref AttachWebACL, 'true'], !Equals [!Ref MaintenanceMode, 'true']]
+  HasNotDomainName: !Equals [!Ref DomainName, '']
+  HasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
+  HasCustomerDomain: !Not [Condition: HasNotCustomerDomain]
+  HasCustomerStaticPagesBucketDomainName: !Not [!Equals [!Ref CustomerStaticPagesBucketDomainName, '']]
+  HasExternalDomainName: !Not [!Equals [!Ref ExternalDomainName, '']]
   enableBasicAuth: !Equals [!Ref BasicAuth, 'true']
   enableMaintenanceMode: !Equals [!Ref MaintenanceMode, 'true']
-  hasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
 
@@ -164,10 +164,10 @@ Resources:
             - - !If [isProd, '', !Sub '${ENV}-']
               - !If
                 # CustomerDomainの指定が無い場合、次の判定に進む
-                - hasNotCustomerDomain
+                - HasNotCustomerDomain
                 - !If
                   # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
-                  - hasNotDomainName
+                  - HasNotDomainName
                   - !Join
                     - ''
                     - - !Ref ProjectId
@@ -201,7 +201,7 @@ Resources:
 
           ## Origin for External Origin
           - !If
-            - hasExternalDomainName
+            - HasExternalDomainName
             - CustomOriginConfig:
                 OriginProtocolPolicy: https-only
                 OriginKeepaliveTimeout: 5
@@ -248,7 +248,7 @@ Resources:
 
           ## Origin for Customer Static Pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - DomainName: !Ref CustomerStaticPagesBucketDomainName
               Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               S3OriginConfig:
@@ -305,7 +305,7 @@ Resources:
 
           ## magazine for external domain
           - !If
-            - hasExternalDomainName
+            - HasExternalDomainName
             - TargetOriginId:  !Sub Custom-${ServiceName}-${ENV}-${ProjectId}-${ExternalDomainName}
               PathPattern: /magazine
               AllowedMethods:
@@ -329,7 +329,7 @@ Resources:
 
           ## magazine for external domain
           - !If
-            - hasExternalDomainName
+            - HasExternalDomainName
             - TargetOriginId:  !Sub Custom-${ServiceName}-${ENV}-${ProjectId}-${ExternalDomainName}
               PathPattern: /magazine/*
               AllowedMethods:
@@ -353,7 +353,7 @@ Resources:
 
           ## json for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /json/*
               AllowedMethods:
@@ -372,7 +372,7 @@ Resources:
 
           ## news for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /news/*
               AllowedMethods:
@@ -391,7 +391,7 @@ Resources:
 
           ## about for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /about/*
               AllowedMethods:
@@ -410,7 +410,7 @@ Resources:
 
           ## help for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /help/*
               AllowedMethods:
@@ -429,7 +429,7 @@ Resources:
 
           ## resources for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /resources/*
               AllowedMethods:
@@ -448,7 +448,7 @@ Resources:
 
           ## lp for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /lp/*
               AllowedMethods:
@@ -558,7 +558,7 @@ Resources:
               - '.s3.amazonaws.com'
           Prefix: !Sub web/${ProjectId}/
         WebACLId: !If
-            - hasWebACL
+            - HasWebACL
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
             - !Ref AWS::NoValue
 
@@ -590,7 +590,7 @@ Resources:
         - Key: ProjectId
           Value: !Ref ProjectId
         - !If
-          - hasMigrationHubServerID
+          - HasMigrationHubServerID
           - Key: map-migrated
             Value: !Ref MigrationHubServerID
           - !Ref AWS::NoValue
@@ -616,7 +616,7 @@ Resources:
   CFRecord:
     Type: AWS::Route53::RecordSet
     # 先方ドメインを使用するしないに関わらずRoute53にレコードを作成する
-    # Condition: hasNotCustomerDomain
+    # Condition: HasNotCustomerDomain
     DependsOn: WebDistribution
     Properties:
       HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
@@ -625,7 +625,7 @@ Resources:
         - - !If [isProd, '', !Sub '${ENV}-']
           - !If
               # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
-              - hasNotDomainName
+              - HasNotDomainName
               - !Join
                 - ''
                 - - !Ref ProjectId
@@ -678,7 +678,7 @@ Resources:
   # ACM DaysToExpiry
   ACMDaysToExpiry:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasCustomerDomain
+    Condition: HasCustomerDomain
     Properties:
       AlarmName: !Sub 'ACM DaysToExpiry [${CustomerDomain}]'
       AlarmDescription: 'ACM証明書有効期限 15日前'

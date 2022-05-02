@@ -1,4 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - ProjectId
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -30,7 +45,7 @@ Parameters:
 
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
-  hasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
   # Project Image on S3 Bucket
@@ -66,7 +81,7 @@ Resources:
       - Key: ProjectId
         Value: !Ref ProjectId
       - !If
-        - hasMigrationHubServerID
+        - HasMigrationHubServerID
         - Key: map-migrated
           Value: !Ref MigrationHubServerID
         - !Ref AWS::NoValue

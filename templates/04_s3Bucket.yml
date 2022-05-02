@@ -49,9 +49,9 @@ Parameters:
     Default: ''
 
 Conditions:
-  hasStoresBucketReplicationName: !Not [!Equals [!Ref StoresBucketReplicationName, '']]
-  hasSitemapBucketReplicationName: !Not [!Equals [!Ref SitemapBucketReplicationName, '']]
-  hasMigrationHubServerID: !Not [ !Equals [!Ref MigrationHubServerID, ''] ]
+  HasStoresBucketReplicationName: !Not [!Equals [!Ref StoresBucketReplicationName, '']]
+  HasSitemapBucketReplicationName: !Not [!Equals [!Ref SitemapBucketReplicationName, '']]
+  HasMigrationHubServerID: !Not [ !Equals [!Ref MigrationHubServerID, ''] ]
 
 Resources:
   # ALB Logs on S3 Bucket
@@ -78,7 +78,7 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
       - !If
-        - hasMigrationHubServerID
+        - HasMigrationHubServerID
         - Key: map-migrated
           Value: !Ref MigrationHubServerID
         - !Ref AWS::NoValue
@@ -156,7 +156,7 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       ReplicationConfiguration: !If
-        - hasStoresBucketReplicationName
+        - HasStoresBucketReplicationName
         - Role:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-s3-access-role
           Rules:
@@ -178,7 +178,7 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
       - !If
-        - hasMigrationHubServerID
+        - HasMigrationHubServerID
         - Key: map-migrated
           Value: !Ref MigrationHubServerID
         - !Ref AWS::NoValue
@@ -221,7 +221,7 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       ReplicationConfiguration: !If
-        - hasSitemapBucketReplicationName
+        - HasSitemapBucketReplicationName
         - Role:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-s3-access-role
           Rules:
@@ -241,7 +241,7 @@ Resources:
         - Key: Project
           Value: !Ref ServiceName
         - !If
-          - hasMigrationHubServerID
+          - HasMigrationHubServerID
           - Key: map-migrated
             Value: !Ref MigrationHubServerID
           - !Ref AWS::NoValue

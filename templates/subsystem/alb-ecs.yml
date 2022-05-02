@@ -30,6 +30,10 @@ Metadata:
           - ECSTargetTracking
           - ECSStepScaleOutThreshold
           - ECSStepScaleInThreshold
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
 
 #スタックパラメーター設定
 Parameters:
@@ -179,19 +183,27 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
 Conditions:
   isALBSchemaBoth: !Equals [!Ref ALBSchemaType, 'both']
   isProd: !Equals [!Ref ENV, prod]
-  hasALBSchemaInternet: !Or
+  HasALBSchemaInternet: !Or
     - !Equals [!Ref ALBSchemaType, 'internet-facing']
     - Condition: isALBSchemaBoth
-  hasALBSchemaInternal: !Or
+  HasALBSchemaInternal: !Or
     - !Not [!Equals [!Ref ALBSchemaType, 'internet-facing']]
     - Condition: isALBSchemaBoth
-  hasConfigBucket: !Equals [!Ref UseConfigBucket, 'true']
-  hasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
-  hasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
-  hasALBDropInvalidHeaderFields: !Equals [!Ref ALBDropInvalidHeaderFields, 'true']
+  HasConfigBucket: !Equals [!Ref UseConfigBucket, 'true']
+  HasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
+  HasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
+  HasALBDropInvalidHeaderFields: !Equals [!Ref ALBDropInvalidHeaderFields, 'true']
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 
 Resources:
@@ -203,7 +215,7 @@ Resources:
   # ------------------------------------------------------------#
   ALBTargetBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       Name: !Sub ${SystemName}-${ENV}-blue
       VpcId:
@@ -225,13 +237,18 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Green TargetGroup (Public)
   # ------------------------------------------------------------#
   ALBTargetGreen:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       Name: !Sub ${SystemName}-${ENV}-green
       VpcId:
@@ -253,13 +270,18 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Blue TargetGroup (Internal)
   # ------------------------------------------------------------#
   InternalALBTargetBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Condition: hasALBSchemaInternal
+    Condition: HasALBSchemaInternal
     Properties:
       Name: !Sub ${SystemName}-${ENV}-i-blue
       VpcId:
@@ -281,13 +303,18 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Green TargetGroup (Internal)
   # ------------------------------------------------------------#
   InternalALBTargetGreen:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Condition: hasALBSchemaInternal
+    Condition: HasALBSchemaInternal
     Properties:
       Name: !Sub ${SystemName}-${ENV}-i-green
       VpcId:
@@ -309,6 +336,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### Application Load Balancer ############################################
 
@@ -317,7 +349,7 @@ Resources:
   # ------------------------------------------------------------#
   PublicALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       Name: !Sub ${SystemName}-${ENV}-alb
       Type: application
@@ -332,7 +364,7 @@ Resources:
         - Key: access_logs.s3.prefix
           Value: !Sub '${SystemName}/public'
         - !If
-          - hasALBDropInvalidHeaderFields
+          - HasALBDropInvalidHeaderFields
           - Key: routing.http.drop_invalid_header_fields.enabled
             Value: true
           - !Ref 'AWS::NoValue'
@@ -352,13 +384,18 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ALB (Internal)
   # ------------------------------------------------------------#
   InternalALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Condition: hasALBSchemaInternal
+    Condition: HasALBSchemaInternal
     Properties:
       Name: !Sub ${SystemName}-${ENV}-i-alb
       Type: application
@@ -387,6 +424,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### ALB Listener ############################################
 
@@ -395,7 +437,7 @@ Resources:
   # ------------------------------------------------------------#
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       Port: 443
       Protocol: HTTPS
@@ -416,7 +458,7 @@ Resources:
   # ------------------------------------------------------------#
   ALBBlueGreenListener:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     DependsOn: ALBListener
     Properties:
       ListenerArn: !Ref ALBListener
@@ -440,7 +482,7 @@ Resources:
   # ------------------------------------------------------------#
   ALBNoSSLRedirectListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       Port: 80
       Protocol: HTTP
@@ -460,7 +502,7 @@ Resources:
   # ------------------------------------------------------------#
   InternalALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
-    Condition: hasALBSchemaInternal
+    Condition: HasALBSchemaInternal
     Properties:
       Port: 80
       Protocol: HTTP
@@ -477,7 +519,7 @@ Resources:
   # ------------------------------------------------------------#
   InternalALBBlueGreenListener:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Condition: hasALBSchemaInternal
+    Condition: HasALBSchemaInternal
     DependsOn: InternalALBListener
     Properties:
       ListenerArn: !Ref InternalALBListener
@@ -502,8 +544,8 @@ Resources:
   ALBListenerReady:
     Type: AWS::CloudFormation::WaitConditionHandle
     Metadata:
-      ALBBlueGreenListener: !If [ hasALBSchemaInternet, !Ref ALBBlueGreenListener, "" ]
-      InternalALBBlueGreenListener: !If [ hasALBSchemaInternal, !Ref InternalALBBlueGreenListener, "" ]
+      ALBBlueGreenListener: !If [ HasALBSchemaInternet, !Ref ALBBlueGreenListener, "" ]
+      InternalALBBlueGreenListener: !If [ HasALBSchemaInternal, !Ref InternalALBBlueGreenListener, "" ]
 
 ####################################### ECR ############################################
 
@@ -523,6 +565,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### ECS ############################################
 
@@ -545,6 +592,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ECS Blue TaskDefinition
@@ -577,7 +629,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasConfigBucket
+              - HasConfigBucket
               - Name: 'CONFIG_BUCKET'
                 Value:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
@@ -591,6 +643,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ECS Green TaskDefinition
@@ -623,7 +680,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasConfigBucket
+              - HasConfigBucket
               - Name: 'CONFIG_BUCKET'
                 Value:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
@@ -637,6 +694,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ECS Blue Service
@@ -653,13 +715,13 @@ Resources:
       LaunchType: FARGATE
       LoadBalancers:
         - !If
-          - hasALBSchemaInternet
+          - HasALBSchemaInternet
           - ContainerName: !Sub ${SystemName}-${ENV}-blue
             ContainerPort: !Ref ContainerPort
             TargetGroupArn: !Ref ALBTargetBlue
           - !Ref 'AWS::NoValue'
         - !If
-          - hasALBSchemaInternal
+          - HasALBSchemaInternal
           - ContainerName: !Sub ${SystemName}-${ENV}-blue
             ContainerPort: !Ref ContainerPort
             TargetGroupArn: !Ref InternalALBTargetBlue
@@ -682,6 +744,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ECS Green Service
@@ -698,13 +765,13 @@ Resources:
       LaunchType: FARGATE
       LoadBalancers:
         - !If
-          - hasALBSchemaInternet
+          - HasALBSchemaInternet
           - ContainerName: !Sub ${SystemName}-${ENV}-green
             ContainerPort: !Ref ContainerPort
             TargetGroupArn: !Ref ALBTargetGreen
           - !Ref 'AWS::NoValue'
         - !If
-          - hasALBSchemaInternal
+          - HasALBSchemaInternal
           - ContainerName: !Sub ${SystemName}-${ENV}-green
             ContainerPort: !Ref ContainerPort
             TargetGroupArn: !Ref InternalALBTargetGreen
@@ -727,6 +794,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: SystemName
         Value: !Ref SystemName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### AutoScaling ############################################
 
@@ -805,7 +877,7 @@ Resources:
   # ------------------------------------------------------------#
   StepScallingScaleOutPolicyBlue:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasECSStepScaleOutThreshold
+    Condition: HasECSStepScaleOutThreshold
     DependsOn:
       - ECSServiceBlue
     Properties:
@@ -828,7 +900,7 @@ Resources:
   # ------------------------------------------------------------#
   StepScallingScaleOutPolicyGreen:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasECSStepScaleOutThreshold
+    Condition: HasECSStepScaleOutThreshold
     DependsOn:
       - ECSServiceGreen
     Properties:
@@ -851,7 +923,7 @@ Resources:
   # ------------------------------------------------------------#
   StepScallingScaleInPolicyBlue:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasECSStepScaleInThreshold
+    Condition: HasECSStepScaleInThreshold
     DependsOn:
       - ECSServiceBlue
     Properties:
@@ -878,7 +950,7 @@ Resources:
   # ------------------------------------------------------------#
   StepScallingScaleInPolicyGreen:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: hasECSStepScaleInThreshold
+    Condition: HasECSStepScaleInThreshold
     DependsOn:
       - ECSServiceGreen
     Properties:
@@ -907,7 +979,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceBlue:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       AlarmName: !Join
         - ''
@@ -940,7 +1012,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceGreen:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       AlarmName: !Join
         - ''
@@ -973,7 +1045,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceScaleOutBlue:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasECSStepScaleOutThreshold
+    Condition: HasECSStepScaleOutThreshold
     DependsOn:
       - StepScallingScaleOutPolicyBlue
     Properties:
@@ -1006,7 +1078,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceScaleOutGreen:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasECSStepScaleOutThreshold
+    Condition: HasECSStepScaleOutThreshold
     DependsOn:
       - StepScallingScaleOutPolicyGreen
     Properties:
@@ -1038,7 +1110,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceScaleInBlue:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasECSStepScaleInThreshold
+    Condition: HasECSStepScaleInThreshold
     DependsOn:
       - StepScallingScaleInPolicyBlue
     Properties:
@@ -1071,7 +1143,7 @@ Resources:
   # ------------------------------------------------------------#
   CPUAlarmServiceScaleInGreen:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasECSStepScaleInThreshold
+    Condition: HasECSStepScaleInThreshold
     DependsOn:
       - StepScallingScaleInPolicyGreen
     Properties:
@@ -1104,7 +1176,7 @@ Resources:
   # ------------------------------------------------------------#
   HTTPCodePublicELB5XX:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       AlarmName: !Join
         - ''
@@ -1135,7 +1207,7 @@ Resources:
   # ------------------------------------------------------------#
   HTTPCodeInternalELB5XX:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternal
+    Condition: HasALBSchemaInternal
     Properties:
       AlarmName: !Join
         - ''
@@ -1166,7 +1238,7 @@ Resources:
   # ------------------------------------------------------------#
   HTTPCodeTargetBlue5XX:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       AlarmName: !Join
         - ''
@@ -1197,7 +1269,7 @@ Resources:
   # ------------------------------------------------------------#
   HTTPCodeTargetGreen5XX:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternet
+    Condition: HasALBSchemaInternet
     Properties:
       AlarmName: !Join
         - ''
@@ -1228,7 +1300,7 @@ Resources:
   # ------------------------------------------------------------#
   HTTPCodeInternalTargetBlue5XX:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternal
+    Condition: HasALBSchemaInternal
     Properties:
       AlarmName: !Join
         - ''
@@ -1259,7 +1331,7 @@ Resources:
   # ------------------------------------------------------------#
   HTTPCodeInternalTargetGreen5XX:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasALBSchemaInternal
+    Condition: HasALBSchemaInternal
     Properties:
       AlarmName: !Join
         - ''
@@ -1299,16 +1371,16 @@ Outputs:
     Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECR}:prod-green
   ALBListener:
     Description: ALB Listener ARN
-    Value: !If [hasALBSchemaInternet, !Ref ALBListener, ""]
+    Value: !If [HasALBSchemaInternet, !Ref ALBListener, ""]
   InternalALBListener:
     Description: InternalALB Listener ARN
-    Value: !If [hasALBSchemaInternal, !Ref InternalALBListener, ""]
+    Value: !If [HasALBSchemaInternal, !Ref InternalALBListener, ""]
   SystemName:
     Description: Sub System Name
     Value: !Ref SystemName
   PublicALBDomainName:
     Description: Public ALB Domain Name
-    Value: !If [hasALBSchemaInternet, !GetAtt PublicALB.DNSName, ""]
+    Value: !If [HasALBSchemaInternet, !GetAtt PublicALB.DNSName, ""]
   InternalALBDomainName:
     Description: Public ALB Domain Name
-    Value: !If [hasALBSchemaInternal, !GetAtt InternalALB.DNSName, ""]
+    Value: !If [HasALBSchemaInternal, !GetAtt InternalALB.DNSName, ""]

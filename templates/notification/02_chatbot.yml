@@ -1,6 +1,23 @@
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Notification to Slack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - ProjectId
+      - Label:
+          default: ChatBot Parameters
+        Parameters:
+          - WorkspaceId
+          - ChannelId
+          - SnsTopicArns
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -31,7 +48,7 @@ Parameters:
     Description: Enter sns topic list, like 「arn:aws:sns:ap-northeast-1:<accountId>:<tipicName>」
 
 Conditions:
-  hasSnsTopicArns: !Not
+  HasSnsTopicArns: !Not
     - !Equals
       - !Join ["", !Ref SnsTopicArns]
       - ''
@@ -50,7 +67,7 @@ Resources:
       SlackChannelId: !Ref ChannelId
       SlackWorkspaceId: !Ref WorkspaceId
       SnsTopicArns: !If
-        - hasSnsTopicArns
+        - HasSnsTopicArns
         - !Ref SnsTopicArns
         - !Ref AWS::NoValue
 
