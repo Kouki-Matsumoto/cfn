@@ -10,11 +10,13 @@ Metadata:
           - ServiceName
           - SystemName
           - ALBSchemaType
+          - PublicALBSecurityPolicy
           - ContainerPort
           - SSLArn
           - HealthCheckPathName
           - TaskRoleOutputName
           - UseConfigBucket
+          - ALBDropInvalidHeaderFields
       - Label:
           default: ECS Task Definition
         Parameters:
@@ -152,6 +154,31 @@ Parameters:
     Default: 1024
     Description: Enter 512, 1024 or 2048 ...
 
+  # Public ALB SecurityPolicy
+  PublicALBSecurityPolicy:
+    Type: String
+    AllowedValues:
+      - "ELBSecurityPolicy-2016-08"
+      - "ELBSecurityPolicy-TLS-1-0-2015-04"
+      - "ELBSecurityPolicy-TLS-1-1-2017-01"
+      - "ELBSecurityPolicy-TLS-1-2-2017-01"
+      - "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+      - "ELBSecurityPolicy-FS-2018-06"
+      - "ELBSecurityPolicy-FS-1-1-2019-08"
+      - "ELBSecurityPolicy-FS-1-2-2019-08"
+      - "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+      - "ELBSecurityPolicy-FS-1-2-Res-2019-08"
+      - "ELBSecurityPolicy-FS-1-2-Res-2020-10"
+    Default: 'ELBSecurityPolicy-2016-08'
+    ConstraintDescription: Select Security policy for Public ALB."
+
+  # ALB Drop Invalid HeaderFields Options
+  ALBDropInvalidHeaderFields:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
 Conditions:
   isALBSchemaBoth: !Equals [!Ref ALBSchemaType, 'both']
   isProd: !Equals [!Ref ENV, prod]
@@ -161,14 +188,10 @@ Conditions:
   hasALBSchemaInternal: !Or
     - !Not [!Equals [!Ref ALBSchemaType, 'internet-facing']]
     - Condition: isALBSchemaBoth
-  hasConfigBucketInternet: !And
-    - !Equals [!Ref UseConfigBucket, 'true']
-    - Condition: hasALBSchemaInternet
-  hasConfigBucketInternal: !And
-    - !Equals [!Ref UseConfigBucket, 'true']
-    - Condition: hasALBSchemaInternal
+  hasConfigBucket: !Equals [!Ref UseConfigBucket, 'true']
   hasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
   hasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
+  hasALBDropInvalidHeaderFields: !Equals [!Ref ALBDropInvalidHeaderFields, 'true']
 
 
 Resources:
@@ -308,6 +331,11 @@ Resources:
             Fn::ImportValue: !Sub '${ServiceName}-${ENV}-alb-logs-bucket'
         - Key: access_logs.s3.prefix
           Value: !Sub '${SystemName}/public'
+        - !If
+          - hasALBDropInvalidHeaderFields
+          - Key: routing.http.drop_invalid_header_fields.enabled
+            Value: true
+          - !Ref 'AWS::NoValue'
       SecurityGroups:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-alb-sg-id
 
@@ -375,7 +403,7 @@ Resources:
       Certificates:
         - CertificateArn: !Ref SSLArn
         - !Ref "AWS::NoValue"
-      SslPolicy: "ELBSecurityPolicy-2016-08"
+      SslPolicy: !Ref PublicALBSecurityPolicy
       DefaultActions:
       - Type: fixed-response
         FixedResponseConfig:
@@ -549,7 +577,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasConfigBucketInternet
+              - hasConfigBucket
               - Name: 'CONFIG_BUCKET'
                 Value:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket
@@ -595,7 +623,7 @@ Resources:
               awslogs-stream-prefix: ecs
           Environment:
             - !If
-              - hasConfigBucketInternet
+              - hasConfigBucket
               - Name: 'CONFIG_BUCKET'
                 Value:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-config-logs-bucket

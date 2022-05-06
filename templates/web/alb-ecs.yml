@@ -10,6 +10,7 @@ Metadata:
           - ServiceName
           - SystemName
           - ProjectId
+          - PublicALBSecurityPolicy
           - ContainerPort
           - SSLArn
           - HealthCheckPathName
@@ -150,6 +151,24 @@ Parameters:
     Default: 'pvs-web'
     Description: Specify ECR
 
+  # Public ALB SecurityPolicy
+  PublicALBSecurityPolicy:
+    Type: String
+    AllowedValues:
+      - "ELBSecurityPolicy-2016-08"
+      - "ELBSecurityPolicy-TLS-1-0-2015-04"
+      - "ELBSecurityPolicy-TLS-1-1-2017-01"
+      - "ELBSecurityPolicy-TLS-1-2-2017-01"
+      - "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+      - "ELBSecurityPolicy-FS-2018-06"
+      - "ELBSecurityPolicy-FS-1-1-2019-08"
+      - "ELBSecurityPolicy-FS-1-2-2019-08"
+      - "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+      - "ELBSecurityPolicy-FS-1-2-Res-2019-08"
+      - "ELBSecurityPolicy-FS-1-2-Res-2020-10"
+    Default: 'ELBSecurityPolicy-2016-08'
+    ConstraintDescription: Select Security policy for Public ALB."
+
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
   hasProjectId: !Not [!Equals [!Ref ProjectId, '']]
@@ -277,7 +296,7 @@ Resources:
       Certificates:
         - CertificateArn: !Ref SSLArn
         - !Ref "AWS::NoValue"
-      SslPolicy: "ELBSecurityPolicy-2016-08"
+      SslPolicy: !Ref PublicALBSecurityPolicy
       DefaultActions:
       - Type: fixed-response
         FixedResponseConfig:
