@@ -1047,6 +1047,30 @@ Resources:
       VpcId: !Ref VPC
       ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
 
+  # ------------------------------------------------------------#
+  # VPC Endpoint for Api Gateway
+  # ------------------------------------------------------------#
+  VPCEndPointForApiGateway:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument: !Sub '{
+        "Version":"2012-10-17",
+        "Statement":[{
+          "Effect":"Allow",
+          "Principal": "*",
+          "Action": "*",
+          "Resource": "*"
+        }]
+      }'
+      PrivateDnsEnabled: true
+      VpcEndpointType: Interface
+      SubnetIds:
+        - !Ref NatSubnetA
+        - !Ref NatSubnetC
+        - !Ref NatSubnetD
+      VpcId: !Ref VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.execute-api
+
 ####################################### Subnet Group ############################################
 
   # ------------------------------------------------------------#
@@ -1169,3 +1193,16 @@ Outputs:
     Value: !Ref RDSSubnetGroup
     Export:
       Name: !Sub ${ServiceName}-${ENV}-rds-subnet-group
+
+  DynamoDBVPCEndPointId:
+    Value: !Ref VPCEndPointForDynamoDB
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-dynamodb-vpc-endpoint-id
+  S3VPCEndPointId:
+    Value: !Ref VPCEndPointForS3
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-s3-vpc-endpoint-id
+  ApiGatewayVPCEndPointId:
+    Value: !Ref VPCEndPointForApiGateway
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-execute-api-vpc-endpoint-id
