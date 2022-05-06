@@ -16,7 +16,7 @@ Parameters:
     Description: Enter service name, like 「pvs」
 
 Resources:
-  # Cache Policy
+  ####################################### Cache Policy ############################################
   ## Disabled Cache Policy
   DisabledCachePolicy:
     Type: AWS::CloudFront::CachePolicy
@@ -97,7 +97,47 @@ Resources:
             QueryStringsConfig:
               QueryStringBehavior: none
 
-  # Origin request Policy
+  ## Disabled Cache Policy
+  DefaultCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+          Name: !Sub ${ServiceName}-${ENV}-default-cache-policy
+          Comment: !Sub ${ServiceName}-${ENV}-default-cache-policy
+          DefaultTTL: 1
+          MaxTTL: 1
+          MinTTL: 1
+          ParametersInCacheKeyAndForwardedToOrigin:
+            EnableAcceptEncodingBrotli: true
+            EnableAcceptEncodingGzip: true
+            HeadersConfig:
+              HeaderBehavior: none
+            CookiesConfig:
+              CookieBehavior: none
+            QueryStringsConfig:
+              QueryStringBehavior: none
+
+  ## 1min Cache Policy
+  1minCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+          Name: !Sub ${ServiceName}-${ENV}-1min-cache-policy
+          Comment: !Sub ${ServiceName}-${ENV}-1min-cache-policy
+          DefaultTTL: 60
+          MaxTTL: 60
+          MinTTL: 60
+          ParametersInCacheKeyAndForwardedToOrigin:
+            EnableAcceptEncodingBrotli: true
+            EnableAcceptEncodingGzip: true
+            HeadersConfig:
+              HeaderBehavior: none
+            CookiesConfig:
+              CookieBehavior: none
+            QueryStringsConfig:
+              QueryStringBehavior: none
+
+  ####################################### Origin request Policy ############################################
   ## Disabled Request Policy
   DisabledOriginRequestPolicy:
     Type: AWS::CloudFront::OriginRequestPolicy
@@ -203,6 +243,14 @@ Outputs:
     Value: !Ref JsCachePolicy
     Export:
       Name: !Sub ${ServiceName}-${ENV}-js-policy-id
+  DefaultCachePolicyId:
+    Value: !Ref DefaultCachePolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-default-policy-id
+  1minCachePolicyId:
+    Value: !Ref 1minCachePolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-1min-policy-id
   DisabledOriginRequestPolicyId:
     Value: !Ref DisabledOriginRequestPolicy
     Export:
