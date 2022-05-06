@@ -18,8 +18,13 @@ Parameters:
     Type: String
     Description: Enter service name, like 「pvs-stg-stores-bucket-us」
 
+  SitemapBucketReplicationName:
+    Type: String
+    Description: Enter service name, like 「pvs-stg-sitemap-bucket」
+
 Conditions:
   hasStoresBucketReplicationName: !Not [!Equals [!Ref StoresBucketReplicationName, '']]
+  hasSitemapBucketReplicationName: !Not [!Equals [!Ref SitemapBucketReplicationName, '']]
 
 Resources:
   # ALB Logs on S3 Bucket
@@ -161,6 +166,64 @@ Resources:
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoresBucketOriginAccessIdentity}
 
+  SitemapBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-sitemap-bucket-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-sitemap-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      ReplicationConfiguration: !If
+        - hasSitemapBucketReplicationName
+        - Role:
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-s3-access-role
+          Rules:
+            - Destination:
+                Bucket: !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref SitemapBucketReplicationName
+              Id: !Sub ${ServiceName}-${ENV}-sitemap-bucket-us-replication
+              Status: Enabled
+        - !Ref AWS::NoValue
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-sitemap-bucket-${AWS::Region}
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  SitemapBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SitemapBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${SitemapBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SitemapBucketOriginAccessIdentity}
+
+  # SitemapBucket Origin Access Identity
+  SitemapBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-sitemap-identity
+
 Outputs:
   ALBLogsBucketName:
     Value: !Ref ALBLogsBucket
@@ -202,3 +265,15 @@ Outputs:
     Value: !Ref StoresBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
+  SitemapBucketArn:
+    Value: !GetAtt 'SitemapBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sitemap-bucket-arn
+  SitemapBucketDomainName:
+    Value: !GetAtt 'SitemapBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sitemap-bucket-domain
+  SitemapBucketOriginAccessIdentity:
+    Value: !Ref SitemapBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sitemap-bucket-oai
