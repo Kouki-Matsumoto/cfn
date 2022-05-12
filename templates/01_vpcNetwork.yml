@@ -24,6 +24,7 @@ Metadata:
           default: Options
         Parameters:
           - MigrationHubServerID
+          - CreateVPCEndPointForApiGateway
 
 #スタックパラメーター設定
 Parameters:
@@ -92,6 +93,13 @@ Parameters:
     Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
     Default: ''
 
+  # CreateVPCEndPointForApiGateway
+  CreateVPCEndPointForApiGateway:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
 Conditions:
   isNatGatwayMultiAZ: !Equals [!Ref EnableNatGatwayMultiAZ, 'true']
 
@@ -113,6 +121,8 @@ Conditions:
     - !Not [!Equals [!Ref PeerVpcCidrBlock1, '']]
 
   HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
+
+  HasVPCEndPointForApiGateway: !Equals [!Ref CreateVPCEndPointForApiGateway, 'true']
 
 Mappings:
   EnvCidrBlock:
@@ -1052,6 +1062,7 @@ Resources:
   # ------------------------------------------------------------#
   VPCEndPointForApiGateway:
     Type: AWS::EC2::VPCEndpoint
+    Condition: HasVPCEndPointForApiGateway
     Properties:
       PolicyDocument: !Sub '{
         "Version":"2012-10-17",
@@ -1064,6 +1075,8 @@ Resources:
       }'
       PrivateDnsEnabled: true
       VpcEndpointType: Interface
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
       SubnetIds:
         - !Ref NatSubnetA
         - !Ref NatSubnetC
@@ -1203,6 +1216,6 @@ Outputs:
     Export:
       Name: !Sub ${ServiceName}-${ENV}-s3-vpc-endpoint-id
   ApiGatewayVPCEndPointId:
-    Value: !Ref VPCEndPointForApiGateway
+    Value: !If [HasVPCEndPointForApiGateway, !Ref VPCEndPointForApiGateway, ""]
     Export:
       Name: !Sub ${ServiceName}-${ENV}-execute-api-vpc-endpoint-id
