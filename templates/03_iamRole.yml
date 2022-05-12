@@ -234,6 +234,20 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
 
+  ApiGatewayCloudWatchLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-api-gateway-cw-logs-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+
 Outputs:
   ECSTaskExecutionRoleARN:
     Value: !GetAtt  ECSTaskExecutionRole.Arn
@@ -279,3 +293,7 @@ Outputs:
     Value: !GetAtt  S3AccessRole.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-s3-access-role
+  ApiGatewayCloudWatchLogsRole:
+    Value: !GetAtt  ApiGatewayCloudWatchLogsRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-api-gateway-cw-logs-role
