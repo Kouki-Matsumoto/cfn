@@ -347,7 +347,7 @@ Resources:
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
               CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             - !Ref 'AWS::NoValue'
@@ -366,7 +366,7 @@ Resources:
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
               CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             - !Ref 'AWS::NoValue'
@@ -385,7 +385,7 @@ Resources:
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
               CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             - !Ref 'AWS::NoValue'
@@ -404,7 +404,7 @@ Resources:
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
               CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             - !Ref 'AWS::NoValue'
@@ -423,7 +423,7 @@ Resources:
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
               CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             - !Ref 'AWS::NoValue'
@@ -442,7 +442,7 @@ Resources:
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
               CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             - !Ref 'AWS::NoValue'
