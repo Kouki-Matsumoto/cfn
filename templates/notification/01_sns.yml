@@ -40,7 +40,7 @@ Parameters:
     Type: String
     Description: Enter lambda function arn, like 「arn:aws:lambda:ap-northeast-1:xxxx:function:xxxxxxx」
 
-  # SNS Topic サブスクリプション用メールアドレスs
+  # SNS Topic サブスクリプション用メールアドレス
   SubsciptionMailAddress:
     Type: String
     AllowedPattern: ^[a-zA-Z0-9_+-]+(.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$
