@@ -1,6 +1,25 @@
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Notification to Slack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+      - Label:
+          default: Subscriptions Parameters
+        Parameters:
+          - SubsciptionLambdaFunctionArn
+          - SubsciptionMailAddress
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -21,8 +40,23 @@ Parameters:
     Type: String
     Description: Enter lambda function arn, like 「arn:aws:lambda:ap-northeast-1:xxxx:function:xxxxxxx」
 
+  # SNS Topic サブスクリプション用メールアドレス
+  SubsciptionMailAddress:
+    Type: String
+    AllowedPattern: ^[a-zA-Z0-9_+-]+(.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$
+    Default: playstores_dev@play.jp
+    Description: Enter e-mail address, like ?playstores_dev@play.jp?
+
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
 Conditions:
-  hasNotSubscriptionLambda: !Equals [!Ref SubsciptionLambdaFunctionArn, '']
+  HasNotSubscriptionLambda: !Equals [!Ref SubsciptionLambdaFunctionArn, '']
+  HasNotSubsciptionMailAddress: !Equals [!Ref SubsciptionMailAddress, '']
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
 ###################################### SNS ############################################
@@ -33,7 +67,7 @@ Resources:
     Properties:
       TopicName: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-sns-topic
       Subscription: !If
-        - hasNotSubscriptionLambda
+        - HasNotSubscriptionLambda
         # Lambda for Slack
         - !Ref 'AWS::NoValue'
         - - Endpoint: !Ref SubsciptionLambdaFunctionArn
@@ -45,12 +79,22 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # CloudWatch Alarm用 SNS Topic
   CostAlarmTopic:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: !Sub ${ServiceName}-${ENV}-cost-alarm-sns-topic
+      Subscription:  !If
+        - HasNotSubsciptionMailAddress
+        - !Ref 'AWS::NoValue'
+        - - Endpoint: !Ref SubsciptionMailAddress
+            Protocol: "email"
       Tags:
         - Key: Name
           Value: !Sub ${ServiceName}-${ENV}-cost-alarm-sns-topic
@@ -58,6 +102,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
 Outputs:
   CloudWatchAlarmTopicArn:

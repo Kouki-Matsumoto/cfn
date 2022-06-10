@@ -1,4 +1,21 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - SystemName
+          - ProjectId
+      - Label:
+          default: Options
+        Parameters:
+          - AllowedIps
+          - MigrationHubServerID
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -34,6 +51,16 @@ Parameters:
     Type: CommaDelimitedList
     Default: 113.43.239.66/32,122.221.102.154/32,113.42.102.154/32,124.36.35.82/32
 
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
+Conditions:
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
+
 Resources:
   # Closed IPset for CloudFront
   CFWAFv2IPSet:
@@ -55,6 +82,11 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 Outputs:
   CFIPsetArn:

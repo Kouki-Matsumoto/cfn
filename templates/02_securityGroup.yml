@@ -1,4 +1,22 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+      - Label:
+          default: VPC Peer Connection Parameters
+        Parameters:
+          - PeerVpcCidrBlock1
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -6,6 +24,7 @@ Parameters:
     Type: String
     AllowedValues: ['prod', 'stg', 'dev']
     ConstraintDescription: Enter prod, stg, or dev."
+
   #サービス名
   ServiceName:
     Type: String
@@ -21,16 +40,16 @@ Parameters:
     Default: ''
     Description: Enter Peering VPC ID, like 「10.1.0.0/16」
 
-Metadata:
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-      Label:
-        default: VPC Peer Connection Configuration
-      Parameters:
-        - PeerVpcCidrBlock1
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
 
 Conditions:
-  hasPeerVpc: !Not [!Equals [!Ref PeerVpcCidrBlock1, '']]
+  HasPeerVpc: !Not [!Equals [!Ref PeerVpcCidrBlock1, '']]
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
   # ALB
@@ -57,6 +76,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ALB Open SecurityGroup
   OpenALBSecurityGroup:
@@ -82,6 +106,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # Internal Network
   CommonSecurityGroup:
@@ -106,7 +135,7 @@ Resources:
           ToPort: 443
           SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
         - !If
-          - hasPeerVpc
+          - HasPeerVpc
           - IpProtocol: tcp
             FromPort: 80
             ToPort: 80
@@ -120,6 +149,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # Ingress Common SecurityGroup
   IngressCommonToCommonSecurityGroup:
@@ -158,6 +192,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 Outputs:
   ALBSecurityGroupId:

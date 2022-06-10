@@ -25,6 +25,7 @@ Metadata:
           - AttachWebACL
           - BasicAuth
           - MaintenanceMode
+          - MigrationHubServerID
 
 #スタックパラメーター設定
 Parameters:
@@ -119,16 +120,32 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
+Mappings:
+  EnvMaps:
+    Prod:
+      HostedZoneName: 'stores.play.jp.'
+      Domain: '.stores.play.jp'
+    Stg:
+      HostedZoneName: 'stg.stores.play.jp.'
+      Domain: '.stg.stores.play.jp'
+
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
-  hasWebACL: !Or [!Equals [!Ref AttachWebACL, 'true'], !Equals [!Ref MaintenanceMode, 'true']]
-  hasNotDomainName: !Equals [!Ref DomainName, '']
-  hasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
-  hasCustomerDomain: !Not [Condition: hasNotCustomerDomain]
-  hasCustomerStaticPagesBucketDomainName: !Not [!Equals [!Ref CustomerStaticPagesBucketDomainName, '']]
-  hasExternalDomainName: !Not [!Equals [!Ref ExternalDomainName, '']]
+  HasWebACL: !Or [!Equals [!Ref AttachWebACL, 'true'], !Equals [!Ref MaintenanceMode, 'true']]
+  HasNotDomainName: !Equals [!Ref DomainName, '']
+  HasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
+  HasCustomerDomain: !Not [Condition: HasNotCustomerDomain]
+  HasCustomerStaticPagesBucketDomainName: !Not [!Equals [!Ref CustomerStaticPagesBucketDomainName, '']]
+  HasExternalDomainName: !Not [!Equals [!Ref ExternalDomainName, '']]
   enableBasicAuth: !Equals [!Ref BasicAuth, 'true']
   enableMaintenanceMode: !Equals [!Ref MaintenanceMode, 'true']
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
 
@@ -147,18 +164,18 @@ Resources:
             - - !If [isProd, '', !Sub '${ENV}-']
               - !If
                 # CustomerDomainの指定が無い場合、次の判定に進む
-                - hasNotCustomerDomain
+                - HasNotCustomerDomain
                 - !If
                   # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
-                  - hasNotDomainName
+                  - HasNotDomainName
                   - !Join
                     - ''
                     - - !Ref ProjectId
-                      - '.stores.play.jp'
+                      - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
                   - !Join
                     - ''
                     - - !Ref DomainName
-                      - '.stores.play.jp'
+                      - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
                 # CustomerDomainの指定がある場合、CustomerDomainをCNAMEに使用する
                 - !Ref CustomerDomain
         ### Origins
@@ -172,7 +189,8 @@ Resources:
             DomainName: !Join
               - ''
               - - !If [isProd, '', !Sub '${ENV}-']
-                - !Sub ${SystemName}-lb.stores.play.jp
+                - !Sub ${SystemName}-lb
+                - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
             Id: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
             ConnectionAttempts: 3
             ConnectionTimeout: 10
@@ -183,7 +201,7 @@ Resources:
 
           ## Origin for External Origin
           - !If
-            - hasExternalDomainName
+            - HasExternalDomainName
             - CustomOriginConfig:
                 OriginProtocolPolicy: https-only
                 OriginKeepaliveTimeout: 5
@@ -230,7 +248,7 @@ Resources:
 
           ## Origin for Customer Static Pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - DomainName: !Ref CustomerStaticPagesBucketDomainName
               Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               S3OriginConfig:
@@ -287,7 +305,7 @@ Resources:
 
           ## magazine for external domain
           - !If
-            - hasExternalDomainName
+            - HasExternalDomainName
             - TargetOriginId:  !Sub Custom-${ServiceName}-${ENV}-${ProjectId}-${ExternalDomainName}
               PathPattern: /magazine
               AllowedMethods:
@@ -311,7 +329,7 @@ Resources:
 
           ## magazine for external domain
           - !If
-            - hasExternalDomainName
+            - HasExternalDomainName
             - TargetOriginId:  !Sub Custom-${ServiceName}-${ENV}-${ProjectId}-${ExternalDomainName}
               PathPattern: /magazine/*
               AllowedMethods:
@@ -335,7 +353,7 @@ Resources:
 
           ## json for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /json/*
               AllowedMethods:
@@ -354,7 +372,7 @@ Resources:
 
           ## news for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /news/*
               AllowedMethods:
@@ -373,7 +391,7 @@ Resources:
 
           ## about for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /about/*
               AllowedMethods:
@@ -392,7 +410,7 @@ Resources:
 
           ## help for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /help/*
               AllowedMethods:
@@ -411,7 +429,7 @@ Resources:
 
           ## resources for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /resources/*
               AllowedMethods:
@@ -430,7 +448,7 @@ Resources:
 
           ## lp for static pages
           - !If
-            - hasCustomerStaticPagesBucketDomainName
+            - HasCustomerStaticPagesBucketDomainName
             - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
               PathPattern: /lp/*
               AllowedMethods:
@@ -493,7 +511,7 @@ Resources:
             CachePolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
             OriginRequestPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
 
           ## assets
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -509,7 +527,23 @@ Resources:
             CachePolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
             OriginRequestPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+
+          ## css
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /css/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
 
           ## js
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -525,7 +559,7 @@ Resources:
             CachePolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-js-policy-id
             OriginRequestPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
         ViewerCertificate:
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
@@ -540,7 +574,7 @@ Resources:
               - '.s3.amazonaws.com'
           Prefix: !Sub web/${ProjectId}/
         WebACLId: !If
-            - hasWebACL
+            - HasWebACL
             - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-${SystemName}-webacl-arn
             - !Ref AWS::NoValue
 
@@ -571,6 +605,11 @@ Resources:
           Value: !Ref SystemName
         - Key: ProjectId
           Value: !Ref ProjectId
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
 ####################################### Route53 ############################################
 
@@ -578,11 +617,12 @@ Resources:
   ALBRecord:
     Type: AWS::Route53::RecordSet
     Properties:
-      HostedZoneName: 'stores.play.jp.'
+      HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
       Name: !Join
         - ''
         - - !If [isProd, '', !Sub '${ENV}-']
-          - !Sub ${SystemName}-lb.stores.play.jp.
+          - !Sub ${SystemName}-lb
+          - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
       Type: A
       AliasTarget:
         DNSName: !Ref ALBDomainName
@@ -592,24 +632,24 @@ Resources:
   CFRecord:
     Type: AWS::Route53::RecordSet
     # 先方ドメインを使用するしないに関わらずRoute53にレコードを作成する
-    # Condition: hasNotCustomerDomain
+    # Condition: HasNotCustomerDomain
     DependsOn: WebDistribution
     Properties:
-      HostedZoneName: 'stores.play.jp.'
+      HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
       Name: !Join
         - ''
         - - !If [isProd, '', !Sub '${ENV}-']
           - !If
-            # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
-            - hasNotDomainName
-            - !Join
-              - ''
-              - - !Ref ProjectId
-                - '.stores.play.jp'
-            - !Join
-              - ''
-              - - !Ref DomainName
-                - '.stores.play.jp'
+              # DomainNameの指定が無い場合、ProjectIdをCNAMEに使用する
+              - HasNotDomainName
+              - !Join
+                - ''
+                - - !Ref ProjectId
+                  - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+              - !Join
+                - ''
+                - - !Ref DomainName
+                  - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
       Type: A
       AliasTarget:
         DNSName: !GetAtt 'WebDistribution.DomainName'
@@ -654,7 +694,7 @@ Resources:
   # ACM DaysToExpiry
   ACMDaysToExpiry:
     Type: AWS::CloudWatch::Alarm
-    Condition: hasCustomerDomain
+    Condition: HasCustomerDomain
     Properties:
       AlarmName: !Sub 'ACM DaysToExpiry [${CustomerDomain}]'
       AlarmDescription: 'ACM証明書有効期限 15日前'
