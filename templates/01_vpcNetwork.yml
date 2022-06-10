@@ -1,4 +1,31 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+      - Label:
+          default: VPC Peer Connection Parameters
+        Parameters:
+          - PeerConnectionId1
+          - PeerVpcCidrBlock1
+      - Label:
+          default: Nat Gateway Parameters
+        Parameters:
+          - NatIPAllocationId
+          - NatIPAllocationIdAzC
+          - NatIPAllocationIdAzD
+          - EnableNatGatwayMultiAZ
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
+          - CreateVPCEndPointForApiGateway
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -59,14 +86,19 @@ Parameters:
     Default: ''
     Description: Enter Peering VPC ID, like 「10.1.0.0/16」
 
-Metadata:
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-      Label:
-        default: VPC Peer Connection Configuration
-      Parameters:
-        - PeerConnectionId1
-        - PeerVpcCidrBlock1
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
+  # CreateVPCEndPointForApiGateway
+  CreateVPCEndPointForApiGateway:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
 
 Conditions:
   isNatGatwayMultiAZ: !Equals [!Ref EnableNatGatwayMultiAZ, 'true']
@@ -84,9 +116,13 @@ Conditions:
     - !Equals [!Ref NatIPAllocationIdAzD, '']
     - Condition: isNatGatwayMultiAZ
 
-  hasPeerVpc1: !And
+  HasPeerVpc1: !And
     - !Not [!Equals [!Ref PeerConnectionId1, '']]
     - !Not [!Equals [!Ref PeerVpcCidrBlock1, '']]
+
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
+
+  HasVPCEndPointForApiGateway: !Equals [!Ref CreateVPCEndPointForApiGateway, 'true']
 
 Mappings:
   EnvCidrBlock:
@@ -105,19 +141,19 @@ Mappings:
       subnetPublicIgwC: '10.30.40.0/22'
       subnetPublicIgwD: '10.30.44.0/22'
     stg:
-      vpc: '10.34.0.0/16'
-      subnetPublicA: '10.34.0.0/22'
-      subnetPublicC: '10.34.4.0/22'
-      subnetPublicD: '10.34.8.0/22'
-      subnetPrivateA: '10.34.12.0/22'
-      subnetPrivateC: '10.34.16.0/22'
-      subnetPrivateD: '10.34.20.0/22'
-      subnetNatA: '10.34.24.0/22'
-      subnetNatC: '10.34.28.0/22'
-      subnetNatD: '10.34.32.0/22'
-      subnetPublicIgwA: '10.34.36.0/22'
-      subnetPublicIgwC: '10.34.40.0/22'
-      subnetPublicIgwD: '10.34.44.0/22'
+      vpc: '10.44.0.0/16'
+      subnetPublicA: '10.44.0.0/22'
+      subnetPublicC: '10.44.4.0/22'
+      subnetPublicD: '10.44.8.0/22'
+      subnetPrivateA: '10.44.12.0/22'
+      subnetPrivateC: '10.44.16.0/22'
+      subnetPrivateD: '10.44.20.0/22'
+      subnetNatA: '10.44.24.0/22'
+      subnetNatC: '10.44.28.0/22'
+      subnetNatD: '10.44.32.0/22'
+      subnetPublicIgwA: '10.44.36.0/22'
+      subnetPublicIgwC: '10.44.40.0/22'
+      subnetPublicIgwD: '10.44.44.0/22'
     dev:
       vpc: '10.32.0.0/16'
       subnetPublicA: '10.32.0.0/22'
@@ -148,11 +184,16 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: !Sub "${ServiceName}-${ENV}-vpc"
+          Value: !Sub ${ServiceName}-${ENV}-vpc
         - Key: Environment
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
 ####################################### Subnet ############################################
 
@@ -168,11 +209,16 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub "${ServiceName}-${ENV}-public-subnet-a"
+          Value: !Sub ${ServiceName}-${ENV}-public-subnet-a
         - Key: Environment
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Public Subnet for AZ 1c
@@ -186,11 +232,16 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub "${ServiceName}-${ENV}-public-subnet-c"
+          Value: !Sub ${ServiceName}-${ENV}-public-subnet-c
         - Key: Environment
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Public Subnet for AZ 1d
@@ -209,6 +260,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Private Subnet for AZ 1a
@@ -227,6 +283,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Private Subnet for AZ 1c
@@ -245,6 +306,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Private Subnet for AZ 1d
@@ -263,6 +329,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # NAT Subnet for AZ 1a
@@ -281,6 +352,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # NAT Subnet for AZ 1c
@@ -299,6 +375,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # NAT Subnet for AZ 1d
@@ -317,6 +398,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Public Internet GW Subnet for AZ 1a
@@ -335,6 +421,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Public Internet GW Subnet for AZ 1c
@@ -353,6 +444,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Public Internet GW Subnet for AZ 1d
@@ -371,6 +467,11 @@ Resources:
           Value: !Ref ENV
         - Key: Project
           Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
 ####################################### RouteTable ############################################
 
@@ -388,6 +489,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Private RouteTable
@@ -403,6 +509,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # NAT RouteTable
@@ -418,6 +529,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # NAT RouteTable for AZ 1c
@@ -434,6 +550,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # NAT RouteTable for AZ 1d
@@ -450,6 +571,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Public Internet GW RouteTable
@@ -465,6 +591,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Public Internet GW RouteTable for AZ 1c
@@ -481,6 +612,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Public Internet GW RouteTable for AZ 1d
@@ -497,6 +633,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 ####################################### Internet Gateway ############################################
 
@@ -513,6 +654,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # Internet Gateway on VPC
@@ -536,12 +682,17 @@ Resources:
     Properties:
       Domain: vpc
       Tags:
-      - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-nat-eip
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-eip
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ElasticIP For NAT Gateway 2
@@ -552,12 +703,17 @@ Resources:
     Properties:
       Domain: vpc
       Tags:
-      - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-nat-eip-c
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-eip-c
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # ElasticIP For NAT Gateway 3
@@ -568,12 +724,17 @@ Resources:
     Properties:
       Domain: vpc
       Tags:
-      - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-nat-eip-d
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-eip-d
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
 ####################################### NAT Gateway ############################################
 
@@ -586,12 +747,17 @@ Resources:
       AllocationId: !If [specifyNatIpAID, !Ref NatIPAllocationId, !GetAtt NatEIP.AllocationId]
       SubnetId: !Ref PublicIgwSubnetA
       Tags:
-      - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-nat-gw
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-gw
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # NAT Gateway for AZ c
@@ -603,12 +769,17 @@ Resources:
       AllocationId: !If [specifyNatIpAIDAzC, !Ref NatIPAllocationIdAzC, !GetAtt NatEIP2.AllocationId]
       SubnetId: !Ref PublicIgwSubnetC
       Tags:
-      - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-nat-gw-c
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-gw-c
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
   # NAT Gateway for AZ d
@@ -620,12 +791,17 @@ Resources:
       AllocationId: !If [specifyNatIpAIDAzD, !Ref NatIPAllocationIdAzD, !GetAtt NatEIP3.AllocationId]
       SubnetId: !Ref PublicIgwSubnetD
       Tags:
-      - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-nat-gw-d
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-nat-gw-d
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
 
 ####################################### Route ############################################
@@ -716,7 +892,7 @@ Resources:
   # ------------------------------------------------------------#
   AttachPrivateRouteForPeerVPC1:
     Type: AWS::EC2::Route
-    Condition: hasPeerVpc1
+    Condition: HasPeerVpc1
     Properties:
       RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: !Ref PeerVpcCidrBlock1
@@ -881,6 +1057,33 @@ Resources:
       VpcId: !Ref VPC
       ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
 
+  # ------------------------------------------------------------#
+  # VPC Endpoint for Api Gateway
+  # ------------------------------------------------------------#
+  VPCEndPointForApiGateway:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: HasVPCEndPointForApiGateway
+    Properties:
+      PolicyDocument: !Sub '{
+        "Version":"2012-10-17",
+        "Statement":[{
+          "Effect":"Allow",
+          "Principal": "*",
+          "Action": "*",
+          "Resource": "*"
+        }]
+      }'
+      PrivateDnsEnabled: true
+      VpcEndpointType: Interface
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
+      SubnetIds:
+        - !Ref NatSubnetA
+        - !Ref NatSubnetC
+        - !Ref NatSubnetD
+      VpcId: !Ref VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.execute-api
+
 ####################################### Subnet Group ############################################
 
   # ------------------------------------------------------------#
@@ -895,9 +1098,21 @@ Resources:
         - !Ref PrivateSubnetA
         - !Ref PrivateSubnetC
         - !Ref PrivateSubnetD
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-elasticache-subnet-group
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
   # ------------------------------------------------------------#
-  # ElastiCache SubnetGroup
+  # SubnetGroup for RDS
   # ------------------------------------------------------------#
   RDSSubnetGroup:
     Type: "AWS::RDS::DBSubnetGroup"
@@ -909,12 +1124,17 @@ Resources:
       - !Ref PrivateSubnetC
       - !Ref PrivateSubnetD
       Tags:
-      - Key: Name
-        Value: !Sub ${ServiceName}-${ENV}-nat-gw
-      - Key: ENV
-        Value: !Ref ENV
-      - Key: Project
-        Value: !Ref ServiceName
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-rds-subnet-group
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
 
 ####################################### Outputs ############################################
 
@@ -986,3 +1206,16 @@ Outputs:
     Value: !Ref RDSSubnetGroup
     Export:
       Name: !Sub ${ServiceName}-${ENV}-rds-subnet-group
+
+  DynamoDBVPCEndPointId:
+    Value: !Ref VPCEndPointForDynamoDB
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-dynamodb-vpc-endpoint-id
+  S3VPCEndPointId:
+    Value: !Ref VPCEndPointForS3
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-s3-vpc-endpoint-id
+  ApiGatewayVPCEndPointId:
+    Value: !If [HasVPCEndPointForApiGateway, !Ref VPCEndPointForApiGateway, ""]
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-execute-api-vpc-endpoint-id

@@ -1,4 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - ProjectId
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
+
 #スタックパラメーター設定
 Parameters:
   #環境名
@@ -22,8 +37,15 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
     Description: Enter project id, like 「tipness」,「shiki」
 
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
   # Project Image on S3 Bucket
@@ -58,6 +80,11 @@ Resources:
         Value: !Ref ServiceName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
 Outputs:
   ProjectImageBucketName:

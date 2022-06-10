@@ -30,6 +30,7 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
 
   ECSTaskRoleForDynamoDB:
     Type: AWS::IAM::Role
@@ -46,6 +47,7 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
 
   ECSTaskRoleForS3:
     Type: AWS::IAM::Role
@@ -62,6 +64,7 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
 
   ECSTaskRoleForMercury:
     Type: AWS::IAM::Role
@@ -79,6 +82,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
 
   ECSTaskRoleForAriel:
     Type: AWS::IAM::Role
@@ -96,6 +100,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
       - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
 
   ECSTaskRoleForDDBAndGlue:
     Type: AWS::IAM::Role
@@ -116,6 +121,7 @@ Resources:
       - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
       - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
 
   ECSTaskRoleForDDBAndS3:
     Type: AWS::IAM::Role
@@ -133,6 +139,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
 
   ECSTaskRoleForCFnAndS3:
     Type: AWS::IAM::Role
@@ -150,6 +157,23 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      - arn:aws:iam::aws:policy/AdministratorAccess
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+
+  ECSTaskRoleForAdministratorAccess:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-for-admin-access-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AdministratorAccess
 
   ECSTaskRoleForAdministratorAccess:
@@ -210,6 +234,20 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
 
+  ApiGatewayCloudWatchLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-api-gateway-cw-logs-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+
 Outputs:
   ECSTaskExecutionRoleARN:
     Value: !GetAtt  ECSTaskExecutionRole.Arn
@@ -255,3 +293,7 @@ Outputs:
     Value: !GetAtt  S3AccessRole.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-s3-access-role
+  ApiGatewayCloudWatchLogsRole:
+    Value: !GetAtt  ApiGatewayCloudWatchLogsRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-api-gateway-cw-logs-role

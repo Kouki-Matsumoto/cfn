@@ -1,4 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+
 #スタックパラメーター設定
 Parameters:
   #環境名
