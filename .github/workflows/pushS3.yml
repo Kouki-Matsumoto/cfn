@@ -1,25 +1,21 @@
-name: Example
-on:
-  push:
+name: "ci"
+
+on: [ workflow_dispatch ]
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      id-token: write # 指定が必要
+
     steps:
-      - run: sleep 5 # there's still a race condition for now
+      - uses: actions/checkout@v2
 
-      - name: Configure AWS
-        run: |
-          export AWS_ROLE_ARN=arn:aws:iam::179017469188:role/pvs-b-stg-Github-iam-role-GitHubOidcRole-1F3JBKRQM5762
-          export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/awscreds
-          export AWS_DEFAULT_REGION=us-east-1
-
-          echo AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_WEB_IDENTITY_TOKEN_FILE >> $GITHUB_ENV
-          echo AWS_ROLE_ARN=$AWS_ROLE_ARN >> $GITHUB_ENV
-          echo AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION >> $GITHUB_ENV
-
-          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sigstore" | jq -r '.value' > $AWS_WEB_IDENTITY_TOKEN_FILE
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.PVS_B_STG_AWS_IAM_ROLE_ARN }}
+          aws-region: ap-northeast-1
 
       - run: aws sts get-caller-identity
+
+      - run: aws s3 ls
