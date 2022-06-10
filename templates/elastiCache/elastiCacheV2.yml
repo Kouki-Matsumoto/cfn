@@ -28,6 +28,11 @@ Metadata:
       - SwapUsageThreshold
       - EvictionsThreshold
       - ReplicationLagThreshold
+    - Label:
+        default: Options
+      Parameters:
+        - MigrationHubServerID
+
 Parameters:
   #環境名
   ENV:
@@ -170,6 +175,13 @@ Parameters:
     Default: 30
     MinValue: -1
 
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
 Mappings:
   EngineVersionMap:
     '3.2.6':
@@ -219,6 +231,7 @@ Conditions:
   HasClusterAndReplicationLagThresholdAndAlertTopic: !And
     - Condition: HasReplicationLagThresholdAndAlertTopic
     - Condition: HasClusterModeEnabled
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
 
@@ -257,6 +270,20 @@ Resources:
       SnapshotRetentionLimit: !Ref SnapshotRetentionLimit
       SnapshotWindow: '00:00-03:00'
       TransitEncryptionEnabled: !Ref TransitEncryption
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-${SystemName}
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - Key: SystemName
+          Value: !Ref SystemName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
     UpdatePolicy:
       UseOnlineResharding: true
 
