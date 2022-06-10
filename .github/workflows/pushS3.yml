@@ -6,7 +6,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
     steps:
       - run: sleep 5 # there's still a race condition for now
