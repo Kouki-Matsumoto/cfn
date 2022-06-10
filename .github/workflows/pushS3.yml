@@ -1,21 +1,23 @@
-name: "ci"
+name: Push Template to S3
 
-on: [ workflow_dispatch ]
+on:
+  pull_request:
+    branches:
+      - master
+    types:
+      - closed
+  push:
+    branches:
+      - staging
 
 jobs:
-  ci:
+  check-secret:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write # 指定が必要
-
+    outputs:
+      my-key: ${{ steps.my-key.outputs.defined }}
     steps:
-      - uses: actions/checkout@v2
-
-      - uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: ${{ secrets.PVS_B_STG_AWS_IAM_ROLE_ARN }}
-          aws-region: ap-northeast-1
-
-      - run: aws sts get-caller-identity
-
-      - run: aws s3 ls
+      - id: my-key
+        if: "${{ env.MY_KEY != '' }}"
+        run: echo "::set-output name=defined::true"
+        env:
+          MY_KEY: ${{ secrets.PVS_B_STG_AWS_IAM_ROLE_ARN }}
