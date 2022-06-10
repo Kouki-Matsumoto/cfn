@@ -1,14 +1,16 @@
 name: Push Template to S3
 
-on:
-  pull_request:
-    branches:
-      - master
-    types:
-      - closed
-  push:
-    branches:
-      - staging
+on: [ workflow_dispatch ]
+
+# on:
+#   pull_request:
+#     branches:
+#       - master
+#     types:
+#       - closed
+#   push:
+#     branches:
+#       - staging
 
 jobs:
   check-secret:
