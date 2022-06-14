@@ -1,0 +1,25 @@
+name: Push Template to S3
+
+on: [ workflow_dispatch ]
+
+# on:
+#   pull_request:
+#     branches:
+#       - master
+#     types:
+#       - closed
+#   push:
+#     branches:
+#       - staging
+
+jobs:
+  check-secret:
+    runs-on: ubuntu-latest
+    outputs:
+      my-key: ${{ steps.my-key.outputs.defined }}
+    steps:
+      - id: my-key
+        if: "${{ env.MY_KEY != '' }}"
+        run: echo "::set-output name=defined::true"
+        env:
+          MY_KEY: ${{ secrets.PVS_B_STG_AWS_IAM_ROLE_ARN }}

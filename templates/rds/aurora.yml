@@ -35,6 +35,10 @@ Metadata:
       - SwapUsageThreshold
       - ReadLatencyThreshold
       - WriteLatencyThreshold
+    - Label:
+        default: Options
+      Parameters:
+        - MigrationHubServerID
 
 Parameters:
   #環境名
@@ -221,6 +225,13 @@ Parameters:
     Type: Number
     Default: 0.5 # 500 milliseconds
     MinValue: -1
+
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    ConstraintDescription: Malformed Input-Parameter must match pattern [a-z0-9-_]+
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
 
 Mappings:
   EngineMap:
@@ -448,7 +459,7 @@ Conditions:
   HasReadReplicaWriteLatencyThreshold: !And
     - Condition: HasReadReplica
     - Condition: HasWriteLatencyThreshold
-
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
 
@@ -496,6 +507,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   DBInstanceA:
     Type: 'AWS::RDS::DBInstance'
@@ -522,6 +538,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   DBInstanceB:
     Condition: HasReadReplica
@@ -549,6 +570,11 @@ Resources:
         Value: !Ref ENV
       - Key: Project
         Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
 
   DBClusterParameterGroup:
     Condition: HasNotDefaultClusterParameterGroup
