@@ -593,7 +593,10 @@ Resources:
               ErrorCachingMinTTL: 0
               ResponsePagePath: '/sorry/maintenance.html'
               ResponseCode: 503
-            - !Ref AWS::NoValue
+            - ErrorCode: 403
+              ErrorCachingMinTTL: 0
+              ResponsePagePath: '/errors/403'
+              ResponseCode: 403
       Tags:
         - Key: Name
           Value: !Sub ${SystemName}-${ENV}-cloudfront
