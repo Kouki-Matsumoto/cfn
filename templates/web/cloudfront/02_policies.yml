@@ -196,13 +196,13 @@ Resources:
         QueryStringsConfig:
           QueryStringBehavior: all
 
-  ## Static Cache Policy
+  ## Static Origin Policy
   StaticCachePolicy:
     Type: AWS::CloudFront::OriginRequestPolicy
     Properties:
       OriginRequestPolicyConfig:
-        Name: !Sub ${ServiceName}-${ENV}-static-cache-policy
-        Comment: !Sub ${ServiceName}-${ENV}-static-cache-cloudfront-policy
+        Name: !Sub ${ServiceName}-${ENV}-static-origin-policy
+        Comment: !Sub ${ServiceName}-${ENV}-static-origin-policy
         HeadersConfig:
           HeaderBehavior: allViewerAndWhitelistCloudFront
           Headers:
