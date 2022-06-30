@@ -85,7 +85,7 @@ Resources:
             Value: !Ref MigrationHubServerID
           - !Ref AWS::NoValue
 
-  # CloudWatch Alarm用 SNS Topic
+  # Cost Anomaly Detection SNS Topic
   CostAlarmTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -107,6 +107,38 @@ Resources:
           - Key: map-migrated
             Value: !Ref MigrationHubServerID
           - !Ref AWS::NoValue
+
+  # Cost Anomaly Detection SNS Topic Policy
+  CostAlarmTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    DependsOn: CostAlarmTopic
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Sid: DefaultStatementPolicy
+          Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+            - sns:GetTopicAttributes
+            - sns:SetTopicAttributes
+            - sns:AddPermission
+            - sns:RemovePermission
+            - sns:DeleteTopic
+            - sns:Subscribe
+            - sns:ListSubscriptionsByTopic
+            - sns:Publish
+          Resource: !Ref CostAlarmTopic
+        - Sid: CostAlarmTopicPolicy
+          Effect: Allow
+          Principal:
+            Service: costalerts.amazonaws.com
+          Action:
+            - sns:Publish
+          Resource: !Ref CostAlarmTopic
+      Topics:
+        - !Ref CostAlarmTopic
 
 Outputs:
   CloudWatchAlarmTopicArn:
