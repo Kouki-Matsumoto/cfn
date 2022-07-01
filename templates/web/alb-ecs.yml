@@ -556,6 +556,9 @@ Resources:
       Cluster: !Ref ECSCluster
       DesiredCount: !Ref ECSTaskDesiredCountBlue
       LaunchType: FARGATE
+      EnableECSManagedTags: true
+      EnableExecuteCommand: true
+      PropagateTags: TASK_DEFINITION
       LoadBalancers:
         - ContainerName: !Sub ${SystemName}-${ENV}-blue
           ContainerPort: !Ref ContainerPort
@@ -599,6 +602,9 @@ Resources:
       Cluster: !Ref ECSCluster
       DesiredCount: !Ref ECSTaskDesiredCountGreen
       LaunchType: FARGATE
+      EnableECSManagedTags: true
+      EnableExecuteCommand: true
+      PropagateTags: TASK_DEFINITION
       LoadBalancers:
         - ContainerName: !Sub ${SystemName}-${ENV}-green
           ContainerPort: !Ref ContainerPort
