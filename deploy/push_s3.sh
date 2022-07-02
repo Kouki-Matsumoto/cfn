@@ -15,7 +15,7 @@ case "${env}" in
     echo "--- Start for staging ---"
     readonly aws_account="179017469188"
     readonly bucket_name="pvs-b-${env}-cfn-templates-bucket"
-    readonly branch_name="new_staging"
+    readonly branch_name="staging"
     ;;
   "prod")
     echo "--- Start for production ---"
