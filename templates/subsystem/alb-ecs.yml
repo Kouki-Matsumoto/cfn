@@ -760,6 +760,9 @@ Resources:
       Cluster: !Ref ECSCluster
       DesiredCount: !Ref ECSTaskDesiredCountBlue
       LaunchType: FARGATE
+      EnableECSManagedTags: true
+      EnableExecuteCommand: true
+      PropagateTags: TASK_DEFINITION
       LoadBalancers:
         - !If
           - HasALBSchemaInternet
@@ -810,6 +813,9 @@ Resources:
       Cluster: !Ref ECSCluster
       DesiredCount: !Ref ECSTaskDesiredCountGreen
       LaunchType: FARGATE
+      EnableECSManagedTags: true
+      EnableExecuteCommand: true
+      PropagateTags: TASK_DEFINITION
       LoadBalancers:
         - !If
           - HasALBSchemaInternet
