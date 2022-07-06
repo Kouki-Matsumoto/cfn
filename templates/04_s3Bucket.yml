@@ -266,6 +266,35 @@ Resources:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-sitemap-identity
 
+  # AthenaQuery on S3 Bucket
+  AthenaQueryBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-athena-query-bucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-athena-query-lifecycle
+            Status: Enabled
+            ExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-athena-query-bucket
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
+
+
 Outputs:
   ALBLogsBucketName:
     Value: !Ref ALBLogsBucket
@@ -319,3 +348,11 @@ Outputs:
     Value: !Ref SitemapBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sitemap-bucket-oai
+  AthenaQueryBucketName:
+    Value: !Ref AthenaQueryBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-athena-query-bucket
+  AthenaQueryBucketArn:
+    Value: !GetAtt 'AthenaQueryBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-athena-query-bucket-arn
