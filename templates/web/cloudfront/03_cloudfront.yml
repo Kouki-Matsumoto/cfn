@@ -540,7 +540,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'CloudFront-5xx-Error-Rate ${ServiceName}-${ENV}-${SystemName}'
-      AlarmDescription: 'CloudFront 5xxレート上昇'
+      AlarmDescription: !Sub '${SystemName}-${ENV} CloudFront 5xxレート上昇'
       ActionsEnabled: true
       Namespace: AWS/CloudFront
       MetricName: 5xxErrorRate
