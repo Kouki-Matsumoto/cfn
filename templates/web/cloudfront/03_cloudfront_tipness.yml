@@ -709,7 +709,7 @@ Resources:
           Value: !Ref SSLArn
       Statistic: Minimum
       Period: 86400
-      Threshold: 15.0
+      Threshold: 30.0
       ComparisonOperator: LessThanOrEqualToThreshold
       TreatMissingData: missing
       EvaluationPeriods: 1
