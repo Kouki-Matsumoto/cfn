@@ -566,7 +566,7 @@ Resources:
     Condition: HasCustomerDomain
     Properties:
       AlarmName: !Sub 'ACM DaysToExpiry [${CustomerDomain}]'
-      AlarmDescription: 'ACM証明書有効期限 15日前'
+      AlarmDescription: 'ACM証明書有効期限 30日前'
       ActionsEnabled: true
       Namespace: AWS/CertificateManager
       MetricName: DaysToExpiry
