@@ -10,6 +10,7 @@ Metadata:
           - ServiceName
           - SystemName
           - ProjectId
+          - StoreId
           - PublicALBSecurityPolicy
           - ContainerPort
           - SSLArn
@@ -149,6 +150,13 @@ Parameters:
     ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
     Description: Enter project id, like 「tipness」,「shiki」
 
+  # Store ID
+  StoreId:
+    Type: String
+    AllowedPattern: ^[0-9a-zA-Z]{26}$
+    ConstraintDescription: Malformed input-Parameter StoreId must match pattern [0-9a-zA-Z]{26}+
+    Description: Enter project id, like 「01GF8B759XA337DW93CG4E7YQS」
+
   # Master ECR
   MasterECRSystemName:
     Type: String
@@ -183,6 +191,7 @@ Parameters:
 Conditions:
   isProd: !Equals [!Ref ENV, prod]
   HasProjectId: !Not [!Equals [!Ref ProjectId, '']]
+  HasStoreId: !Not [!Equals [!Ref StoreId, '']]
   HasNotMaterECR: !Equals [!Ref MasterECRSystemName, '']
   HasECSStepScaleOutThreshold: !Not [!Equals [!Ref ECSStepScaleOutThreshold, 0.0]]
   HasECSStepScaleInThreshold: !Not [!Equals [!Ref ECSStepScaleInThreshold, 0.0]]
@@ -220,6 +229,8 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - Key: StoreId
+        Value: !Ref StoreId
       - !If
         - HasMigrationHubServerID
         - Key: map-migrated
@@ -254,6 +265,8 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - Key: StoreId
+        Value: !Ref StoreId
       - !If
         - HasMigrationHubServerID
         - Key: map-migrated
@@ -302,6 +315,8 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - Key: StoreId
+        Value: !Ref StoreId
       - !If
         - HasMigrationHubServerID
         - Key: map-migrated
@@ -398,6 +413,8 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - Key: StoreId
+        Value: !Ref StoreId
       - !If
         - HasMigrationHubServerID
         - Key: map-migrated
@@ -471,6 +488,11 @@ Resources:
               - Name: 'PROJECT_ID'
                 Value: !Ref ProjectId
               - !Ref 'AWS::NoValue'
+            - !If
+              - HasProjectId
+              - Name: 'STORES_ID'
+                Value: !Ref StoreId
+              - !Ref 'AWS::NoValue'
       Tags:
       - Key: Name
         Value: !Sub ${SystemName}-${ENV}-blue-task-definition
@@ -482,6 +504,8 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - Key: StoreId
+        Value: !Ref StoreId
       - !If
         - HasMigrationHubServerID
         - Key: map-migrated
@@ -526,6 +550,11 @@ Resources:
               - Name: 'PROJECT_ID'
                 Value: !Ref ProjectId
               - !Ref 'AWS::NoValue'
+            - !If
+              - HasProjectId
+              - Name: 'STORES_ID'
+                Value: !Ref StoreId
+              - !Ref 'AWS::NoValue'
       Tags:
       - Key: Name
         Value: !Sub ${SystemName}-${ENV}-green-task-definition
@@ -537,6 +566,8 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - Key: StoreId
+        Value: !Ref StoreId
       - !If
         - HasMigrationHubServerID
         - Key: map-migrated
@@ -583,6 +614,8 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - Key: StoreId
+        Value: !Ref StoreId
       - !If
         - HasMigrationHubServerID
         - Key: map-migrated
@@ -629,6 +662,8 @@ Resources:
         Value: !Ref SystemName
       - Key: ProjectId
         Value: !Ref ProjectId
+      - Key: StoreId
+        Value: !Ref StoreId
       - !If
         - HasMigrationHubServerID
         - Key: map-migrated
