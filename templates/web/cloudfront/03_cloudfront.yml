@@ -308,7 +308,7 @@ Resources:
             Compress: true
             ViewerProtocolPolicy: redirect-to-https
             CachePolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-cache-policy
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
 
