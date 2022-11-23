@@ -387,9 +387,6 @@ Outputs:
     Export:
       Name: !Sub ${ServiceName}-${ENV}-athena-query-bucket-arn
   DocumentsBucketName:
-    Value: !Ref DocumentsBucket
-    Export:
-      Name: !Sub ${ServiceName}-${ENV}-documents-bucket
   DocumentsBucketArn:
     Value: !GetAtt 'DocumentsBucket.Arn'
     Export:
