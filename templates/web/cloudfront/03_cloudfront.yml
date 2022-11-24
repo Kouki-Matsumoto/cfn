@@ -311,6 +311,9 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-cache-policy
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            ImageResponseHeadersPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
+
 
           ## images
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
