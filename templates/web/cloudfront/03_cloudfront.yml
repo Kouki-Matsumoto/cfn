@@ -311,7 +311,7 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
-            ImageResponseHeadersPolicyId:
+            ResponseHeadersPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
 
 
