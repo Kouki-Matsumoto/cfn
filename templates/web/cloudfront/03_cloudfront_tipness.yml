@@ -493,9 +493,11 @@ Resources:
             Compress: true
             ViewerProtocolPolicy: redirect-to-https
             CachePolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            ResponseHeadersPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
 
           ## images
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}

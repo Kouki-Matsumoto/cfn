@@ -247,7 +247,7 @@ Resources:
         Comment: !Sub ${ServiceName}-${ENV}-image-res-headers-policy
         CustomHeadersConfig:
           Items:
-            Header: Cache-Control
+          - Header: Cache-Control
             Value: max-age=60
             Override: true
 
