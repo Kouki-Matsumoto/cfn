@@ -236,6 +236,21 @@ Resources:
         QueryStringsConfig:
           QueryStringBehavior: all
 
+  ####################################### Response Headers Policy ############################################
+
+  # ImageResponseHeadersPolicy
+  ImageResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub ${ServiceName}-${ENV}-image-res-headers-policy
+        Comment: !Sub ${ServiceName}-${ENV}-image-res-headers-policy
+        CustomHeadersConfig:
+          Items:
+            Header: Cache-Control
+            Value: max-age=60
+            Override: true
+
 Outputs:
   DisabledCachePolicyId:
     Value: !Ref DisabledCachePolicy
@@ -281,3 +296,7 @@ Outputs:
     Value: !Ref AllViewerAndCloudFrontPolicy
     Export:
       Name: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+  ImageResponseHeadersPolicyId:
+    Value: !Ref ImageResponseHeadersPolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
