@@ -32,17 +32,9 @@ Metadata:
           - ECSStepScaleOutThreshold
           - ECSStepScaleInThreshold
       - Label:
-          default: AdditionalTargetGroup
-        Parameters:
-          - AdditionalTargetGroupBlue
-          - AdditionalTargetGroupGreen
-          - AdditionalInternalTargetGroupBlue
-          - AdditionalInternalTargetGroupGreen
-      - Label:
           default: Options
         Parameters:
           - MigrationHubServerID
-
 
 #スタックパラメーター設定
 Parameters:
@@ -206,30 +198,6 @@ Parameters:
     Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
     Default: ''
 
-  # AdditionalTargetGroupBlue
-  AdditionalTargetGroupBlue:
-    Type: String
-    Default: ''
-    Description: Additional TargetGroup Blue
-
-  # AdditionalInternalTargetGroupGreen
-  AdditionalTargetGroupGreen:
-    Type: String
-    Default: ''
-    Description: Additional TargetGroup Green
-
-  # AdditionalInternalTargetGroupBlue
-  AdditionalInternalTargetGroupBlue:
-    Type: String
-    Default: ''
-    Description: Additional Internal TargetGroup Blue
-
-  # AdditionalInternalTargetGroupGreen
-  AdditionalInternalTargetGroupGreen:
-    Type: String
-    Default: ''
-    Description: Additional Internal TargetGroup Green
-
 Conditions:
   isALBSchemaBoth: !Equals [!Ref ALBSchemaType, 'both']
   isProd: !Equals [!Ref ENV, prod]
@@ -248,10 +216,6 @@ Conditions:
     - Condition: HasALBSchemaInternet
   HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
-  HasAdditionalTargetGroupBlue: !Not [!Equals [!Ref AdditionalTargetGroupBlue, '']]
-  HasAdditionalTargetGroupGreen: !Not [!Equals [!Ref AdditionalTargetGroupGreen, '']]
-  HasAdditionalInternalTargetGroupBlue: !Not [!Equals [!Ref AdditionalInternalTargetGroupBlue, '']]
-  HasAdditionalInternalTargetGroupGreen: !Not [!Equals [!Ref AdditionalInternalTargetGroupGreen, '']]
 
 Resources:
 
@@ -812,18 +776,6 @@ Resources:
             ContainerPort: !Ref ContainerPort
             TargetGroupArn: !Ref InternalALBTargetBlue
           - !Ref 'AWS::NoValue'
-        - !If
-          - HasAdditionalTargetGroupBlue
-          - ContainerName: !Sub ${SystemName}-${ENV}-blue
-            ContainerPort: !Ref ContainerPort
-            TargetGroupArn: !Ref AdditionalTargetGroupBlue
-          - !Ref 'AWS::NoValue'
-        - !If
-          - HasAdditionalInternalTargetGroupBlue
-          - ContainerName: !Sub ${SystemName}-${ENV}-blue
-            ContainerPort: !Ref ContainerPort
-            TargetGroupArn: !Ref AdditionalInternalTargetGroupBlue
-          - !Ref 'AWS::NoValue'
       TaskDefinition: !Ref ECSTaskDefinitionBlue
       NetworkConfiguration:
         AwsvpcConfiguration:
@@ -876,18 +828,6 @@ Resources:
           - ContainerName: !Sub ${SystemName}-${ENV}-green
             ContainerPort: !Ref ContainerPort
             TargetGroupArn: !Ref InternalALBTargetGreen
-          - !Ref 'AWS::NoValue'
-        - !If
-          - HasAdditionalTargetGroupGreen
-          - ContainerName: !Sub ${SystemName}-${ENV}-green
-            ContainerPort: !Ref ContainerPort
-            TargetGroupArn: !Ref AdditionalTargetGroupGreen
-          - !Ref 'AWS::NoValue'
-        - !If
-          - HasAdditionalInternalTargetGroupGreen
-          - ContainerName: !Sub ${SystemName}-${ENV}-green
-            ContainerPort: !Ref ContainerPort
-            TargetGroupArn: !Ref AdditionalInternalTargetGroupGreen
           - !Ref 'AWS::NoValue'
       TaskDefinition: !Ref ECSTaskDefinitionGreen
       NetworkConfiguration:
