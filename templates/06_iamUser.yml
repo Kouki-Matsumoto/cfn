@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「play-store」
+
+Resources:
+  VideoStorageBucketManageUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /
+      UserName: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-user
+
+  VideoStorageBucketManagePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-policy
+      Users:
+        - !Ref VideoStorageBucketManageUser
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: s3:*
+            Resource:
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+              - !Join
+                - ''
+                - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+                  - '/*'
+
+  VideoStorageBucketManageUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref VideoStorageBucketManageUser
+
+  VideoStorageBucketManageUserAccessKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${VideoStorageBucketManageUser}-credentials
+      SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\"}"
