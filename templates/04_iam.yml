@@ -249,6 +249,26 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
 
+  GitHubOidcRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-github-openid-role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRoleWithWebIdentity
+            Principal:
+              Federated:
+                - !Ref GithubOidc
+            Condition:
+                StringEquals:
+                  token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                StringLike:
+                  token.actions.githubusercontent.com:sub: repo:play-video-stores/*:*
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+
   ApiGatewayCloudWatchLogsRole:
     Type: AWS::IAM::Role
     Properties:
@@ -320,6 +340,16 @@ Resources:
       Name: !Sub ${VideoStorageBucketManageUser}-credentials
       Description: 動画素材アップロード用S3バケットの認証情報
       SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\"}"
+  ####################################### OIDCProvider ############################################
+
+  GithubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - a031c46782e6e6c662c2c87c76da9aa62ccabd8e
 
 Outputs:
   ECSTaskExecutionRoleARN:
@@ -370,6 +400,10 @@ Outputs:
     Value: !GetAtt  ApiGatewayCloudWatchLogsRole.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-api-gateway-cw-logs-role
+  GitHubOidcRole:
+    Value: !GetAtt  GitHubOidcRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-github-openid-role
   VideoStorageBucketManageRole:
     Value: !GetAtt  VideoStorageBucketManageRole.Arn
     Export:
