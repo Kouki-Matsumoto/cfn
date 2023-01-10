@@ -287,12 +287,14 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub ${ServiceName}-${ENV}-video-sources-management-role
+      MaxSessionDuration: 43200
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
             Principal:
               Service: s3.amazonaws.com
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
             Action: 'sts:AssumeRole'
 
   ####################################### IAM Policy ############################################
@@ -317,6 +319,22 @@ Resources:
                 - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
                   - '/*'
 
+  AssumeRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ServiceName}-${ENV}-assume-role-allow-policy
+      Roles:
+        - !Ref ECSTaskRoleForDynamoDB
+        - !Ref ECSTaskRoleForS3
+        - !Ref ECSTaskRoleForDDBAndS3
+        - !Ref ECSTaskRoleForDDBAndGlue
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Resource: '*'
+
   ####################################### IAM User ############################################
 
   VideoStorageBucketManageUser:
@@ -339,7 +357,7 @@ Resources:
     Properties:
       Name: !Sub ${VideoStorageBucketManageUser}-credentials
       Description: 動画素材アップロード用S3バケットの認証情報
-      SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\"}"
+      SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\",\"management-role-arn\":\"${VideoStorageBucketManageRole}\"}"
   ####################################### OIDCProvider ############################################
 
   GithubOidc:
