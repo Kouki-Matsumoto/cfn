@@ -357,7 +357,7 @@ Resources:
     Properties:
       Name: !Sub ${VideoStorageBucketManageUser}-credentials
       Description: 動画素材アップロード用S3バケットの認証情報
-      SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\",\"management-role-arn\":\"${VideoStorageBucketManageRole}\"}"
+      SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\",\"managementRoleArn\":\"${VideoStorageBucketManageRole.Arn}\"}"
   ####################################### OIDCProvider ############################################
 
   GithubOidc:
