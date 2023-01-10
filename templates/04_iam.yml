@@ -286,7 +286,7 @@ Resources:
   VideoStorageBucketManageRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-role
+      RoleName: !Sub ${ServiceName}-${ENV}-video-sources-management-role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -300,7 +300,7 @@ Resources:
   VideoStorageBucketManagePolicy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-policy
+      PolicyName: !Sub ${ServiceName}-${ENV}-video-sources-management-policy
       Users:
         - !Ref VideoStorageBucketManageUser
       Roles:
@@ -323,7 +323,7 @@ Resources:
     Type: AWS::IAM::User
     Properties:
       Path: /
-      UserName: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-user
+      UserName: !Sub ${ServiceName}-${ENV}-video-sources-management-user
 
   ####################################### IAM AccessKey ############################################
 
@@ -407,4 +407,4 @@ Outputs:
   VideoStorageBucketManageRole:
     Value: !GetAtt  VideoStorageBucketManageRole.Arn
     Export:
-      Name: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-role
+      Name: !Sub ${ServiceName}-${ENV}-video-sources-management-role
