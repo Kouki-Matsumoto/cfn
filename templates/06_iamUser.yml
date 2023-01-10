@@ -49,4 +49,5 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: !Sub ${VideoStorageBucketManageUser}-credentials
+      Description: 動画素材アップロード用S3バケットの認証情報
       SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\"}"
