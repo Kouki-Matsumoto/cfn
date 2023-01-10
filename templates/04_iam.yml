@@ -15,6 +15,7 @@ Parameters:
     Description: Enter service name, like 「play-store」
 
 Resources:
+  ####################################### IAM Role ############################################
   ECSTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -268,6 +269,97 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/AWSLambda_FullAccess
 
+  ApiGatewayCloudWatchLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-api-gateway-cw-logs-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+
+  VideoStorageBucketManageRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-video-sources-management-role
+      MaxSessionDuration: 43200
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: 'sts:AssumeRole'
+
+  ####################################### IAM Policy ############################################
+
+  VideoStorageBucketManagePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ServiceName}-${ENV}-video-sources-management-policy
+      Users:
+        - !Ref VideoStorageBucketManageUser
+      Roles:
+        - !Ref VideoStorageBucketManageRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: s3:*
+            Resource:
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+              - !Join
+                - ''
+                - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+                  - '/*'
+
+  AssumeRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ServiceName}-${ENV}-assume-role-allow-policy
+      Roles:
+        - !Ref ECSTaskRoleForDynamoDB
+        - !Ref ECSTaskRoleForS3
+        - !Ref ECSTaskRoleForDDBAndS3
+        - !Ref ECSTaskRoleForDDBAndGlue
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Resource: '*'
+
+  ####################################### IAM User ############################################
+
+  VideoStorageBucketManageUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /
+      UserName: !Sub ${ServiceName}-${ENV}-video-sources-management-user
+
+  ####################################### IAM AccessKey ############################################
+
+  VideoStorageBucketManageUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref VideoStorageBucketManageUser
+
+  ####################################### SecretManager Secret ############################################
+
+  VideoStorageBucketManageUserAccessKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${VideoStorageBucketManageUser}-credentials
+      Description: 動画素材アップロード用S3バケットの認証情報
+      SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\",\"managementRoleArn\":\"${VideoStorageBucketManageRole.Arn}\"}"
+  ####################################### OIDCProvider ############################################
+
   GithubOidc:
     Type: AWS::IAM::OIDCProvider
     Properties:
@@ -330,3 +422,7 @@ Outputs:
     Value: !GetAtt  GitHubOidcRole.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-github-openid-role
+  VideoStorageBucketManageRole:
+    Value: !GetAtt  VideoStorageBucketManageRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-video-sources-management-role
