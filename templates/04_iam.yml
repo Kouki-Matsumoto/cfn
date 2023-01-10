@@ -15,6 +15,7 @@ Parameters:
     Description: Enter service name, like 「play-store」
 
 Resources:
+  ####################################### IAM Role ############################################
   ECSTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -248,6 +249,78 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
 
+  ApiGatewayCloudWatchLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-api-gateway-cw-logs-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+
+  VideoStorageBucketManageRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: 'sts:AssumeRole'
+
+  ####################################### IAM Policy ############################################
+
+  VideoStorageBucketManagePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-policy
+      Users:
+        - !Ref VideoStorageBucketManageUser
+      Roles:
+        - !Ref VideoStorageBucketManageRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: s3:*
+            Resource:
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+              - !Join
+                - ''
+                - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+                  - '/*'
+
+  ####################################### IAM User ############################################
+
+  VideoStorageBucketManageUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /
+      UserName: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-user
+
+  ####################################### IAM AccessKey ############################################
+
+  VideoStorageBucketManageUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref VideoStorageBucketManageUser
+
+  ####################################### SecretManager Secret ############################################
+
+  VideoStorageBucketManageUserAccessKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${VideoStorageBucketManageUser}-credentials
+      Description: 動画素材アップロード用S3バケットの認証情報
+      SecretString: !Sub "{\"accessKeyId\":\"${VideoStorageBucketManageUserAccessKey}\",\"secretAccessKey\":\"${VideoStorageBucketManageUserAccessKey.SecretAccessKey}\"}"
+
 Outputs:
   ECSTaskExecutionRoleARN:
     Value: !GetAtt  ECSTaskExecutionRole.Arn
@@ -297,3 +370,7 @@ Outputs:
     Value: !GetAtt  ApiGatewayCloudWatchLogsRole.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-api-gateway-cw-logs-role
+  VideoStorageBucketManageRole:
+    Value: !GetAtt  VideoStorageBucketManageRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-content-thumbnail-management-role
