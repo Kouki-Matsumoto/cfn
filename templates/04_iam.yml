@@ -32,6 +32,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
   ECSTaskRoleForDynamoDB:
     Type: AWS::IAM::Role
@@ -49,6 +50,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
   ECSTaskRoleForS3:
     Type: AWS::IAM::Role
@@ -66,6 +68,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
   ECSTaskRoleForMercury:
     Type: AWS::IAM::Role
@@ -84,6 +87,7 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
   ECSTaskRoleForAriel:
     Type: AWS::IAM::Role
@@ -102,6 +106,7 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
       - arn:aws:iam::aws:policy/AmazonSQSFullAccess
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
   ECSTaskRoleForDDBAndGlue:
     Type: AWS::IAM::Role
@@ -123,6 +128,7 @@ Resources:
       - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
   ECSTaskRoleForDDBAndS3:
     Type: AWS::IAM::Role
@@ -141,6 +147,7 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
   ECSTaskRoleForCFnAndS3:
     Type: AWS::IAM::Role
@@ -160,22 +167,7 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
       - arn:aws:iam::aws:policy/AdministratorAccess
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
-
-  ECSTaskRoleForAdministratorAccess:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-for-admin-access-role
-      Path: /
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: ecs-tasks.amazonaws.com
-          Action: sts:AssumeRole
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-      - arn:aws:iam::aws:policy/AdministratorAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
   ECSTaskRoleForAdministratorAccess:
     Type: AWS::IAM::Role
