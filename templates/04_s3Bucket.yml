@@ -54,7 +54,7 @@ Conditions:
   HasMigrationHubServerID: !Not [ !Equals [!Ref MigrationHubServerID, ''] ]
 
 Resources:
-  # ALB Logs on S3 Bucket
+  ######################### ALB Logs on S3 Bucket #########################
   ALBLogsBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
@@ -83,7 +83,6 @@ Resources:
           Value: !Ref MigrationHubServerID
         - !Ref AWS::NoValue
 
-  # Bucket Policy for ALB Logs Bucket
   ALBLogsBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -116,7 +115,7 @@ Resources:
             Principal:
               Service: delivery.logs.amazonaws.com
 
-  # Config files on S3 Bucket
+  ######################### Config files on S3 Bucket #########################
   ConfigBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
@@ -137,7 +136,7 @@ Resources:
       - Key: Project
         Value: !Ref ServiceName
 
-  # Stores on S3 Bucket
+  ######################### Stores on S3 Bucket #########################
   StoresBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
@@ -203,6 +202,7 @@ Resources:
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoresBucketOriginAccessIdentity}
 
+  ######################### Sitemap on S3 Bucket #########################
   SitemapBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
@@ -266,7 +266,7 @@ Resources:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-sitemap-identity
 
-  # AthenaQuery on S3 Bucket
+  ######################### AthenaQuery on S3 Bucket #########################
   AthenaQueryBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -293,6 +293,109 @@ Resources:
         - Key: map-migrated
           Value: !Ref MigrationHubServerID
         - !Ref AWS::NoValue
+
+  ######################### Documents on S3 Bucket #########################
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-documents-bucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-documents-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-documents-bucket
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
+
+  ######################### Video Storage on S3 Bucket #########################
+  VideoStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-video-storage-bucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-video-storage-bucket
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
+
+  ######################### Content Thumbnail Image on S3 Bucket #########################
+  ContentThumbnailImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-content-thumbnail-bucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}--content-thumbnail-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-content-thumbnail-bucket
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  ContentThumbnailImageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ContentThumbnailImageBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${ContentThumbnailImageBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${ContentThumbnailImageBucketOriginAccessIdentity}
+
+  # StoresBucket Origin Access Identity
+  ContentThumbnailImageBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-content-thumbnail-bucket-identity
 
 Outputs:
   ALBLogsBucketName:
@@ -355,3 +458,35 @@ Outputs:
     Value: !GetAtt 'AthenaQueryBucket.Arn'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-athena-query-bucket-arn
+  DocumentsBucketName:
+    Value: !Ref DocumentsBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-documents-bucket
+  DocumentsBucketArn:
+    Value: !GetAtt 'DocumentsBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-documents-bucket-arn
+  VideoStorageBucketName:
+    Value: !Ref VideoStorageBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-video-storage-bucket
+  VideoStorageBucketArn:
+    Value: !GetAtt 'VideoStorageBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+  ContentThumbnailImageBucketName:
+    Value: !Ref ContentThumbnailImageBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-content-thumbnail-bucket
+  ContentThumbnailImageBucketArn:
+    Value: !GetAtt 'ContentThumbnailImageBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-content-thumbnail-bucket-arn
+  ContentThumbnailImageBucketDomainName:
+    Value: !GetAtt 'ContentThumbnailImageBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-content-thumbnail-bucket-domain
+  ContentThumbnailImageBucketOriginAccessIdentity:
+    Value: !Ref ContentThumbnailImageBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-content-thumbnail-bucket-oai
