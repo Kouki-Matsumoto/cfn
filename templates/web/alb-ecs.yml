@@ -552,7 +552,7 @@ Resources:
               - !Ref 'AWS::NoValue'
             - !If
               - HasProjectId
-              - Name: 'STORES_ID'
+              - Name: 'STORE_ID'
                 Value: !Ref StoreId
               - !Ref 'AWS::NoValue'
       Tags:
