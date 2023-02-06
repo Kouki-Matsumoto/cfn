@@ -246,6 +246,17 @@ Resources:
                 - - origin-access-identity/cloudfront/
                   - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
 
+          ## Origin for NEW STORES Bucket
+          - DomainName:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-domain
+            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores-origin
+            OriginPath: !Sub /${ProjectId}
+            S3OriginConfig:
+              OriginAccessIdentity: !Join
+                - ''
+                - - origin-access-identity/cloudfront/
+                  - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-oai
+
           ## Origin for Customer Static Pages
           - !If
             - HasCustomerStaticPagesBucketDomainName
@@ -484,6 +495,24 @@ Resources:
           ## stores images
           - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
             PathPattern: /imgs/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            ResponseHeadersPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
+
+          ## new stores images
+          - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores-origin
+            PathPattern: /img/*
             AllowedMethods:
               - GET
               - HEAD
