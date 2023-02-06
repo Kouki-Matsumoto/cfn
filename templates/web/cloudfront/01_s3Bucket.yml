@@ -282,7 +282,62 @@ Resources:
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SorryPagesBucketOriginAccessIdentity}
 
+  ######################### Static Files on S3 Bucket #########################
+
+  StaticFilesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-static-files-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-static-files-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      MetricsConfigurations:
+        - Id: !Sub ${ServiceName}-${ENV}-static-files-metrics-all
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-static-files-${AWS::Region}
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  StaticFileBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticFilesBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${StaticFilesBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StaticFilesBucketOriginAccessIdentity}
+
+  # StaticFilesBucket Origin Access Identity
+  StaticFilesBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-static-files-identity
+
 Outputs:
+  # CFLogsBucket
   CFLogsBucketName:
     Value: !Ref CFLogsBucket
     Export:
@@ -295,6 +350,8 @@ Outputs:
     Value: !GetAtt 'CFLogsBucket.DomainName'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-cf-logs-domain
+
+  # StoresBucket
   StoresBucketName:
     Value: !Ref StoresBucket
     Export:
@@ -311,6 +368,8 @@ Outputs:
     Value: !Ref StoresBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
+
+  # StoreSettingsBucket
   StoreSettingsBucketArn:
     Value: !GetAtt 'StoreSettingsBucket.Arn'
     Export:
@@ -323,6 +382,8 @@ Outputs:
     Value: !Ref StoreSettingsBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-stores-oai
+
+  # SitemapBucket
   SitemapBucketName:
     Value: !Ref SitemapBucket
     Export:
@@ -335,10 +396,12 @@ Outputs:
     Value: !GetAtt 'SitemapBucket.DomainName'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sitemap-domain
-  SitemapBucketOAI:
+  SitemapBucketOriginAccessIdentity:
     Value: !Ref SitemapBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sitemap-oai
+
+  # SorryPagesBucket
   SorryPagesBucketName:
     Value: !Ref SorryPagesBucket
     Export:
@@ -355,3 +418,17 @@ Outputs:
     Value: !Ref SorryPagesBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
+
+  # StaticFilesBucket
+  StaticFilesBucketArn:
+    Value: !GetAtt 'StaticFilesBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-static-files-arn
+  StaticFilesBucketDomainName:
+    Value: !GetAtt 'StaticFilesBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-static-files-domain
+  StaticFilesBucketOriginAccessIdentity:
+    Value: !Ref StaticFilesBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-static-files-oai
