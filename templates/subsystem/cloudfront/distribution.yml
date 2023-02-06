@@ -1,0 +1,242 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - SystemName
+          - SSLArn
+      - Label:
+          default: Domain Setting
+        Parameters:
+          - ALBDomainName
+          - DomainName
+      - Label:
+          default: Options
+        Parameters:
+          - MigrationHubServerID
+
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev.'
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: pvs
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「pvs」
+
+  #システム名
+  SystemName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter SystemName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「web」
+
+  # SSL ACM ARN
+  SSLArn:
+    Type: String
+    Default: 'arn:aws:acm:us-east-1:845168618390:certificate/09ffb08c-060c-405d-8c0c-105ef8ec8d06'
+    Description: Specify ACM ARN
+
+  # ALB Domain Name
+  ALBDomainName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-.]*.elb.amazonaws.com$
+    ConstraintDescription: Malformed input-Parameter ALBDomainName must match pattern [a-z0-9-.]+.elb.amazonaws.com
+    Description: Enter ALB domain name, like 「uranus-api-stg-alb-721605562.ap-northeast-1.elb.amazonaws.com」
+    MinLength: 1
+
+  # Distribution Domain Name
+  DomainName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    ConstraintDescription: Malformed input-Parameter DomainName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「uranus」
+
+  # MigrationHubServerID
+  MigrationHubServerID:
+    Type: String
+    Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
+    Default: ''
+
+Mappings:
+  EnvMaps:
+    Prod:
+      HostedZoneName: 'stores.play.jp.'
+      Domain: '.stores.play.jp'
+    Stg:
+      HostedZoneName: 'stg.stores.play.jp.'
+      Domain: '.stg.stores.play.jp'
+
+Conditions:
+  isProd: !Equals [!Ref ENV, prod]
+  HasNotDomainName: !Equals [!Ref DomainName, '']
+  HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
+
+Resources:
+
+####################################### CloudFront ############################################
+
+  # CloudFront Distribution for WEB
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        PriceClass: PriceClass_All
+        Comment: !Sub '[${ENV}] ${ServiceName}-${ENV}-${SystemName} Distribution'
+        Aliases:
+          - !Join
+            - ''
+            - - !If [isProd, '', !Sub '${ENV}-']
+              - !Join
+                - ''
+                - - !Ref DomainName
+                  - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+        ### Origins
+        Origins:
+          ## Origin for ALB
+          - CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginKeepaliveTimeout: 5
+              OriginSSLProtocols:
+                  - TLSv1.2
+            DomainName: !Join
+              - ''
+              - - !If [isProd, '', !Sub '${ENV}-']
+                - !Sub ${SystemName}-lb
+                - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+            Id: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            ConnectionAttempts: 3
+            ConnectionTimeout: 10
+
+        ## Default Behavior
+        DefaultCacheBehavior:
+          TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - DELETE
+            - POST
+            - OPTIONS
+            - PUT
+            - PATCH
+          CachedMethods:
+            - GET
+            - HEAD
+          MinTTL: 0
+          MaxTTL: 0
+          DefaultTTL: 0
+          Compress: true
+          CachePolicyId:
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+          OriginRequestPolicyId:
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+        ViewerCertificate:
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+          AcmCertificateArn: !Ref SSLArn
+        HttpVersion: http2
+        Enabled: true
+        IPV6Enabled: false
+        Logging:
+          Bucket: !Join
+            - ''
+            - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-logs-bucket
+              - '.s3.amazonaws.com'
+          Prefix: !Sub ${SystemName}/
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${ENV}-cloudfront
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - Key: SystemName
+          Value: !Ref SystemName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
+
+####################################### Route53 ############################################
+
+  # ALB Route53 RecordSet
+  ALBRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
+      Name: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Sub ${SystemName}-lb
+          - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+      Type: A
+      AliasTarget:
+        DNSName: !Ref ALBDomainName
+        HostedZoneId: Z14GRHDCWA56QT
+
+  # CloudFront Route53 RecordSet
+  CFRecord:
+    Type: AWS::Route53::RecordSet
+    DependsOn: Distribution
+    Properties:
+      HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
+      Name: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Join
+            - ''
+            - - !Ref DomainName
+              - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt 'Distribution.DomainName'
+        HostedZoneId: Z2FDTNDATAQYW2
+
+####################################### CloudWatch Alarms ############################################
+
+  # CloudFront 5xx Alarm
+  CloudFront5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'CloudFront-5xx-Error-Rate ${ServiceName}-${ENV}-${SystemName}'
+      AlarmDescription: !Sub '${SystemName}_${ENV} CloudFront 5xxレート上昇'
+      ActionsEnabled: true
+      Namespace: AWS/CloudFront
+      MetricName: 5xxErrorRate
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref Distribution
+        - Name: Region
+          Value: Global
+      Statistic: Maximum
+      Period: 300
+      Threshold: 1.0
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+
+####################################### Outputs #######################################
+
+Outputs:
+  DistributionDomainName:
+    Value: !GetAtt 'Distribution.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${SystemName}-cf-domain
