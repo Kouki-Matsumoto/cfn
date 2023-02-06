@@ -12,6 +12,7 @@ Metadata:
           default: Replication Parameters
         Parameters:
           - StoresBucketReplicationName
+          - StoreSettingsBucketReplicationName
           - SitemapBucketReplicationName
       - Label:
           default: Options
@@ -37,6 +38,10 @@ Parameters:
     Type: String
     Description: Enter service name, like 「pvs-stg-stores-bucket-us」
 
+  StoreSettingsBucketReplicationName:
+    Type: String
+    Description: Enter service name, like 「pvs-stg-stores-us」
+
   SitemapBucketReplicationName:
     Type: String
     Description: Enter service name, like 「pvs-stg-sitemap-bucket」
@@ -50,6 +55,7 @@ Parameters:
 
 Conditions:
   HasStoresBucketReplicationName: !Not [!Equals [!Ref StoresBucketReplicationName, '']]
+  HasStoreSettingsBucketReplicationName: !Not [!Equals [!Ref StoreSettingsBucketReplicationName, '']]
   HasSitemapBucketReplicationName: !Not [!Equals [!Ref SitemapBucketReplicationName, '']]
   HasMigrationHubServerID: !Not [ !Equals [!Ref MigrationHubServerID, ''] ]
 
@@ -182,13 +188,6 @@ Resources:
           Value: !Ref MigrationHubServerID
         - !Ref AWS::NoValue
 
-  # Stores Bucket Origin Access Identity
-  StoresBucketOriginAccessIdentity:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub ${ServiceName}-${ENV}-stores-bucket-identity
-
   # S3Bucket Policy To Allow Access From CloudFront OAI
   StoresBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -201,6 +200,80 @@ Resources:
             Resource: !Sub arn:aws:s3:::${StoresBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoresBucketOriginAccessIdentity}
+
+  # Stores Bucket Origin Access Identity
+  StoresBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-stores-bucket-identity
+
+  ######################### NEW Stores on S3 Bucket #########################
+
+  StoreSettingsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-stores
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-stores-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      ReplicationConfiguration: !If
+        - HasStoreSettingsBucketReplicationName
+        - Role:
+            Fn::ImportValue: !Sub ${ServiceName}-${ENV}-s3-access-role
+          Rules:
+            - Destination:
+                Bucket: !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref StoreSettingsBucketReplicationName
+              Id: !Sub ${ServiceName}-${ENV}-stores-us-replication
+              Status: Enabled
+        - !Ref AWS::NoValue
+      MetricsConfigurations:
+        - Id: !Sub ${ServiceName}-${ENV}-stores-metrics-all
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-stores
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  StoreSettingsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StoreSettingsBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${StoreSettingsBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoreSettingsBucketOriginAccessIdentity}
+
+  # Stores Bucket Origin Access Identity
+  StoreSettingsBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-stores-identity
 
   ######################### Sitemap on S3 Bucket #########################
   SitemapBucket:
@@ -434,6 +507,18 @@ Outputs:
     Value: !GetAtt 'StoresBucket.DomainName'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-stores-bucket-domain
+  StoreSettingsBucketArn:
+    Value: !GetAtt 'StoreSettingsBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-arn
+  StoreSettingsBucketDomainName:
+    Value: !GetAtt 'StoreSettingsBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-domain
+  StoreSettingsBucketOAI:
+    Value: !Ref StoreSettingsBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-oai
   StoresBucketOriginAccessIdentity:
     Value: !Ref StoresBucketOriginAccessIdentity
     Export:
