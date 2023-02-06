@@ -257,6 +257,17 @@ Resources:
                 - - origin-access-identity/cloudfront/
                   - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-oai
 
+          ## Origin for Static Files Bucket
+          - DomainName:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-files-domain
+            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-static-files
+            OriginPath: !Sub /${ProjectId}
+            S3OriginConfig:
+              OriginAccessIdentity: !Join
+                - ''
+                - - origin-access-identity/cloudfront/
+                  - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-files-oai
+
           ## Origin for Customer Static Pages
           - !If
             - HasCustomerStaticPagesBucketDomainName
