@@ -110,9 +110,13 @@ Resources:
       Bucket: !Ref StoresBucket
       PolicyDocument:
         Statement:
-          - Action: s3:GetObject
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
             Effect: Allow
-            Resource: !Sub arn:aws:s3:::${StoresBucket}/*
+            Resource:
+              - !Sub arn:aws:s3:::${StoresBucket}
+              - !Sub arn:aws:s3:::${StoresBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoresBucketOriginAccessIdentity}
 
@@ -165,9 +169,13 @@ Resources:
       Bucket: !Ref StoreSettingsBucket
       PolicyDocument:
         Statement:
-          - Action: s3:GetObject
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
             Effect: Allow
-            Resource: !Sub arn:aws:s3:::${StoreSettingsBucket}/*
+            Resource:
+              - !Sub arn:aws:s3:::${StoreSettingsBucket}
+              - !Sub arn:aws:s3:::${StoreSettingsBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoreSettingsBucketOriginAccessIdentity}
 
@@ -217,9 +225,13 @@ Resources:
       Bucket: !Ref SitemapBucket
       PolicyDocument:
         Statement:
-          - Action: s3:GetObject
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
             Effect: Allow
-            Resource: !Sub arn:aws:s3:::${SitemapBucket}/*
+            Resource:
+              - !Sub arn:aws:s3:::${SitemapBucket}
+              - !Sub arn:aws:s3:::${SitemapBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SitemapBucketOriginAccessIdentity}
 
@@ -276,9 +288,13 @@ Resources:
       Bucket: !Ref SorryPagesBucket
       PolicyDocument:
         Statement:
-          - Action: s3:GetObject
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
             Effect: Allow
-            Resource: !Sub arn:aws:s3:::${SorryPagesBucket}/*
+            Resource:
+              - !Sub arn:aws:s3:::${SorryPagesBucket}
+              - !Sub arn:aws:s3:::${SorryPagesBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SorryPagesBucketOriginAccessIdentity}
 
@@ -323,9 +339,13 @@ Resources:
       Bucket: !Ref StaticFilesBucket
       PolicyDocument:
         Statement:
-          - Action: s3:GetObject
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
             Effect: Allow
-            Resource: !Sub arn:aws:s3:::${StaticFilesBucket}/*
+            Resource:
+              - !Sub arn:aws:s3:::${StaticFilesBucket}
+              - !Sub arn:aws:s3:::${StaticFilesBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StaticFilesBucketOriginAccessIdentity}
 
