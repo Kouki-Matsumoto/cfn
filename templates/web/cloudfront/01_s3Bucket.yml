@@ -110,9 +110,13 @@ Resources:
       Bucket: !Ref StoresBucket
       PolicyDocument:
         Statement:
-          - Action: s3:GetObject
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
             Effect: Allow
-            Resource: !Sub arn:aws:s3:::${StoresBucket}/*
+            Resource:
+              - !Sub arn:aws:s3:::${StoresBucket}
+              - !Sub arn:aws:s3:::${StoresBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoresBucketOriginAccessIdentity}
 
@@ -122,6 +126,65 @@ Resources:
     Properties:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-stores-bucket-identity
+
+
+  ######################### NEW Stores on S3 Bucket #########################
+
+  StoreSettingsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-stores-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-stores-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      MetricsConfigurations:
+        - Id: !Sub ${ServiceName}-${ENV}-stores-metrics-all
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-stores-${AWS::Region}
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  StoreSettingsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StoreSettingsBucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:s3:::${StoreSettingsBucket}
+              - !Sub arn:aws:s3:::${StoreSettingsBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StoreSettingsBucketOriginAccessIdentity}
+
+  # StoreSettingsBucket Origin Access Identity
+  StoreSettingsBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-stores-identity
 
   ######################### Sitemap on S3 Bucket #########################
 
@@ -162,9 +225,13 @@ Resources:
       Bucket: !Ref SitemapBucket
       PolicyDocument:
         Statement:
-          - Action: s3:GetObject
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
             Effect: Allow
-            Resource: !Sub arn:aws:s3:::${SitemapBucket}/*
+            Resource:
+              - !Sub arn:aws:s3:::${SitemapBucket}
+              - !Sub arn:aws:s3:::${SitemapBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SitemapBucketOriginAccessIdentity}
 
@@ -221,13 +288,76 @@ Resources:
       Bucket: !Ref SorryPagesBucket
       PolicyDocument:
         Statement:
-          - Action: s3:GetObject
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
             Effect: Allow
-            Resource: !Sub arn:aws:s3:::${SorryPagesBucket}/*
+            Resource:
+              - !Sub arn:aws:s3:::${SorryPagesBucket}
+              - !Sub arn:aws:s3:::${SorryPagesBucket}/*
             Principal:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SorryPagesBucketOriginAccessIdentity}
 
+  ######################### Static Files on S3 Bucket #########################
+
+  StaticFilesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-static-files-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-static-files-lifecycle
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      MetricsConfigurations:
+        - Id: !Sub ${ServiceName}-${ENV}-static-files-metrics-all
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-static-files-${AWS::Region}
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
+
+  # S3Bucket Policy To Allow Access From CloudFront OAI
+  StaticFileBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticFilesBucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:s3:::${StaticFilesBucket}
+              - !Sub arn:aws:s3:::${StaticFilesBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StaticFilesBucketOriginAccessIdentity}
+
+  # StaticFilesBucket Origin Access Identity
+  StaticFilesBucketOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-static-files-identity
+
 Outputs:
+  # CFLogsBucket
   CFLogsBucketName:
     Value: !Ref CFLogsBucket
     Export:
@@ -240,6 +370,8 @@ Outputs:
     Value: !GetAtt 'CFLogsBucket.DomainName'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-cf-logs-domain
+
+  # StoresBucket
   StoresBucketName:
     Value: !Ref StoresBucket
     Export:
@@ -256,6 +388,22 @@ Outputs:
     Value: !Ref StoresBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
+
+  # StoreSettingsBucket
+  StoreSettingsBucketArn:
+    Value: !GetAtt 'StoreSettingsBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-arn
+  StoreSettingsBucketDomainName:
+    Value: !GetAtt 'StoreSettingsBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-domain
+  StoreSettingsBucketOAI:
+    Value: !Ref StoreSettingsBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-oai
+
+  # SitemapBucket
   SitemapBucketName:
     Value: !Ref SitemapBucket
     Export:
@@ -268,10 +416,12 @@ Outputs:
     Value: !GetAtt 'SitemapBucket.DomainName'
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sitemap-domain
-  SitemapBucketOAI:
+  SitemapBucketOriginAccessIdentity:
     Value: !Ref SitemapBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sitemap-oai
+
+  # SorryPagesBucket
   SorryPagesBucketName:
     Value: !Ref SorryPagesBucket
     Export:
@@ -288,3 +438,17 @@ Outputs:
     Value: !Ref SorryPagesBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
+
+  # StaticFilesBucket
+  StaticFilesBucketArn:
+    Value: !GetAtt 'StaticFilesBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-static-files-arn
+  StaticFilesBucketDomainName:
+    Value: !GetAtt 'StaticFilesBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-static-files-domain
+  StaticFilesBucketOriginAccessIdentity:
+    Value: !Ref StaticFilesBucketOriginAccessIdentity
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-static-files-oai
