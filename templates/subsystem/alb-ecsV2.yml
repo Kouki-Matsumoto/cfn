@@ -9,19 +9,26 @@ Metadata:
           - ENV
           - ServiceName
           - SystemName
+      - Label:
+          default: Application Load Balancer
+        Parameters:
           - ALBSchemaType
-          - PublicALBSecurityPolicy
-          - ContainerPort
           - SSLArn
-          - HealthCheckPathName
-          - TaskRoleOutputName
-          - UseConfigBucket
+          - PublicALBSecurityPolicy
+          - PublicALBWafFailOpen
           - ALBDropInvalidHeaderFields
           - PreSharedKey
           - BlueGreenListenerPathPattern
       - Label:
-          default: ECS Task Definition
+          default: Target groups
         Parameters:
+          - HealthCheckPathName
+      - Label:
+          default: ECS
+        Parameters:
+          - ContainerPort
+          - TaskRoleOutputName
+          - UseConfigBucket
           - ECSTaskDefinitionCPU
           - ECSTaskDefinitionMemory
           - ECSTaskDefinitionSecretName1
@@ -222,6 +229,13 @@ Parameters:
       - "ELBSecurityPolicy-FS-1-2-Res-2020-10"
     Default: 'ELBSecurityPolicy-2016-08'
     ConstraintDescription: Select Security policy for Public ALB."
+
+  # Public ALB WAF Fail Open
+  PublicALBWafFailOpen:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Select WAF Fail Open for Public ALB."
 
   # ALB Drop Invalid HeaderFields Options
   ALBDropInvalidHeaderFields:
@@ -443,6 +457,8 @@ Resources:
           - Key: routing.http.drop_invalid_header_fields.enabled
             Value: true
           - !Ref 'AWS::NoValue'
+        - Key: waf.fail_open.enabled
+          Value: !Ref PublicALBWafFailOpen
       SecurityGroups:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-alb-sg-id
 
