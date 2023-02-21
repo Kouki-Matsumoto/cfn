@@ -318,9 +318,9 @@ Resources:
           OriginRequestPolicyId:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
           LambdaFunctionAssociations:
-            EventType: viewer-request
-            LambdaFunctionARN:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
+            - EventType: viewer-request
+              LambdaFunctionARN:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
 
           ## sorry pages
           - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
