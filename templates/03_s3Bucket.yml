@@ -408,6 +408,13 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${ServiceName}-${ENV}-video-storage-bucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub ${ServiceName}-${ENV}-video-storage-lifecycle
+            Status: Enabled
+            Transition:
+              TransitionInDays: 35
+              StorageClass: 'DEEP_ARCHIVE'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
