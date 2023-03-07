@@ -58,7 +58,15 @@ Parameters:
     Description: Enter Migration Hub Server ID, like 「d-server-000zia7b0qhil8」
     Default: ''
 
+Mappings:
+  EnvMaps:
+    Prod:
+      Domain: '.stores.play.jp'
+    Stg:
+      Domain: '.stg.stores.play.jp'
+
 Conditions:
+  isProd: !Equals [!Ref ENV, prod]
   HasStoresBucketReplicationName: !Not [!Equals [!Ref StoresBucketReplicationName, '']]
   HasStoreSettingsBucketReplicationName: !Not [!Equals [!Ref StoreSettingsBucketReplicationName, '']]
   HasSitemapBucketReplicationName: !Not [!Equals [!Ref SitemapBucketReplicationName, '']]
@@ -420,6 +428,21 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - POST
+              - PUT
+            AllowedOrigins:
+              - !Join
+                - ''
+                - - https://*
+                  - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+            ExposedHeaders:
+              - ETag
       Tags:
       - Key: Name
         Value: !Sub ${ServiceName}-${ENV}-video-storage-bucket
