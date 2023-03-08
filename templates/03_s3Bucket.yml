@@ -441,6 +441,8 @@ Resources:
                 - ''
                 - - https://*
                   - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+              - http://localhost*
+              - http://127.0.0.1*
             ExposedHeaders:
               - ETag
       Tags:
