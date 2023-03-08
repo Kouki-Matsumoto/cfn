@@ -234,11 +234,22 @@ Resources:
                 - - origin-access-identity/cloudfront/
                   - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-oai
 
-          ## Origin for Static Files Bucket
+          ## Origin for Static Files Bucket For Project
           - DomainName:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-files-domain
             Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-static-files
             OriginPath: !Sub /${ProjectId}
+            S3OriginConfig:
+              OriginAccessIdentity: !Join
+                - ''
+                - - origin-access-identity/cloudfront/
+                  - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-files-oai
+
+          ## Origin for Static Files Bucket For Common
+          - DomainName:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-files-domain
+            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-static-files-common
+            OriginPath: /common
             S3OriginConfig:
               OriginAccessIdentity: !Join
                 - ''
@@ -305,6 +316,22 @@ Resources:
           ## sorry pages
           - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
             PathPattern: /sorry/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+
+          ## error pages
+          - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-static-files-common
+            PathPattern: /error/*
             AllowedMethods:
               - GET
               - HEAD
@@ -438,11 +465,11 @@ Resources:
         CustomErrorResponses:
           - ErrorCode: 504
             ErrorCachingMinTTL: 0
-            ResponsePagePath: '/errors/504'
+            ResponsePagePath: '/error/504'
             ResponseCode: 504
           - ErrorCode: 502
             ErrorCachingMinTTL: 0
-            ResponsePagePath: '/errors/502'
+            ResponsePagePath: '/error/502'
             ResponseCode: 502
           - !If
             - enableMaintenanceMode
@@ -452,7 +479,7 @@ Resources:
               ResponseCode: 503
             - ErrorCode: 403
               ErrorCachingMinTTL: 0
-              ResponsePagePath: '/errors/403'
+              ResponsePagePath: '/error/403'
               ResponseCode: 403
 
       Tags:
