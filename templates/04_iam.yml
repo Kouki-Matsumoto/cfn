@@ -169,6 +169,26 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonSSMFullAccess
       - arn:aws:iam::aws:policy/SecretsManagerReadWrite
 
+  ECSTaskRoleForBackEndSystem:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ServiceName}-${ENV}-ecs-task-for-backend-system
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
+
   ECSTaskRoleForAdministratorAccess:
     Type: AWS::IAM::Role
     Properties:
@@ -398,6 +418,10 @@ Outputs:
     Value: !GetAtt  ECSTaskRoleForCFnAndS3.Arn
     Export:
       Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-cfn-s3-role
+  ECSTaskRoleForBackEndSystem:
+    Value: !GetAtt  ECSTaskRoleForBackEndSystem.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-ecs-task-for-backend-system
   ECSTaskRoleForAdministratorAccess:
     Value: !GetAtt  ECSTaskRoleForAdministratorAccess.Arn
     Export:
