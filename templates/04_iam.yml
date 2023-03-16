@@ -340,6 +340,7 @@ Resources:
         - !Ref ECSTaskRoleForS3
         - !Ref ECSTaskRoleForDDBAndS3
         - !Ref ECSTaskRoleForDDBAndGlue
+        - !Ref ECSTaskRoleForBackEndSystem
       PolicyDocument:
         Version: 2012-10-17
         Statement:
