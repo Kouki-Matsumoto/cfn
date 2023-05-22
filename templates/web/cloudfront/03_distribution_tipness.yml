@@ -321,7 +321,7 @@ Resources:
         ### Behaviors
         CacheBehaviors:
           ## sitemap
-          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sitemap
+          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-static-files
             PathPattern: /sitemap.xml
             AllowedMethods:
               - GET
