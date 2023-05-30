@@ -656,6 +656,10 @@ Resources:
 ####################################### Outputs #######################################
 
 Outputs:
+  WebDistributionId:
+    Value: !Ref WebDistribution
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-cf-distribution-id
   WebDistributionDomainName:
     Value: !GetAtt 'WebDistribution.DomainName'
     Export:
