@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+          - ProjectId
+          - ProjectMd5Hash
+
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev."
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: play-store
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「pvs」
+
+  # Project ID
+  ProjectId:
+    Type: String
+    AllowedPattern: ^[a-z0-9-_]*$
+    ConstraintDescription: Malformed input-Parameter ProjectId must match pattern [a-z0-9-_]+
+    Description: Enter project id, like 「tipness」,「shiki」
+
+  # Project Md5 Hash
+  ProjectMd5Hash:
+    Type: String
+    AllowedPattern: ^[a-f0-9]{32}$
+    ConstraintDescription: Malformed input-Parameter ProjectMd5Hash must match pattern ^[a-f0-9]{32}
+    Description: Enter project id, like 「8da66bd15fddda7df4d02c12421a2d7f」
+
+Conditions:
+  isProd: !Equals [!Ref ENV, prod]
+
+Resources:
+
+  ####################################### IAM Policy ############################################
+
+  ProjectVideoStorageBucketManagePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ServiceName}-${ENV}-${ProjectId}-video-sources-management-policy
+      Users:
+        - !Ref ProjectVideoStorageBucketManageUser
+      Roles:
+        - !Ref ProjectVideoStorageBucketManageRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: s3:*
+            Resource:
+              - !Join
+                - ''
+                - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+                  - !Sub '/${ProjectMd5Hash}/*'
+          - Effect: Allow
+            Action: s3:List*
+            Resource:
+              - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
+            Condition:
+                StringLike:
+                  s3:prefix: ${ProjectMd5Hash}/*
+
+
+  ProjectVideoStorageBucketManageRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: !Sub ${ServiceName}-${ENV}-${ProjectId}-video-sources-management-role
+        MaxSessionDuration: 43200
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: s3.amazonaws.com
+                AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+              Action: 'sts:AssumeRole'
+
+  ####################################### IAM User ############################################
+
+  ProjectVideoStorageBucketManageUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /
+      UserName: !Sub ${ServiceName}-${ENV}-${ProjectId}-video-sources-management-user
+
+  ####################################### IAM AccessKey ############################################
+
+  ProjectVideoStorageBucketManageUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref ProjectVideoStorageBucketManageUser
+
+  ####################################### SecretManager Secret ############################################
+
+  ProjectVideoStorageBucketManageUserAccessKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${ENV}/${ProjectId}/videoStorageBucketManage/credentials
+      Description: !Sub ${ProjectId} 動画素材アップロード用S3バケットの認証情報
+      SecretString: !Sub "{\"ACCESS_KEY_ID\":\"${ProjectVideoStorageBucketManageUserAccessKey}\",\"SECRET_ACCESS_KEY\":\"${ProjectVideoStorageBucketManageUserAccessKey.SecretAccessKey}\",\"MANAGEMENT_ROLE_ARN\":\"${ProjectVideoStorageBucketManageRole.Arn}\"}"
+
+
+Outputs:
+  ProjectVideoStorageBucketManageRole:
+    Value: !GetAtt  ProjectVideoStorageBucketManageRole.Arn
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-video-sources-management-role
