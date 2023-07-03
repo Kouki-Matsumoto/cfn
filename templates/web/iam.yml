@@ -72,7 +72,7 @@ Resources:
               - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-video-storage-bucket-arn
             Condition:
                 StringLike:
-                  s3:prefix: ${ProjectMd5Hash}/*
+                  s3:prefix: !Sub ${ProjectMd5Hash}/*
 
 
   ProjectVideoStorageBucketManageRole:
