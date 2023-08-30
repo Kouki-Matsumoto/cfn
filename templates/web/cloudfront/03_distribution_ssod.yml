@@ -333,6 +333,54 @@ Resources:
                 LambdaFunctionARN:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
 
+          ## /law リダイレクト用
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /law
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+
+          ## /feature/latest リダイレクト用
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /feature/latest
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+
+          ## /feature/recommended リダイレクト用
+          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+            PathPattern: /feature/recommended
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+
           ## sorry pages
           - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
             PathPattern: /sorry/*
