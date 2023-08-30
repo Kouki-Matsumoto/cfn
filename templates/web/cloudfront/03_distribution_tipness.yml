@@ -358,6 +358,10 @@ Resources:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+              LambdaFunctionAssociations:
+                - EventType: viewer-request
+                  LambdaFunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
             - !Ref 'AWS::NoValue'
 
           ## magazine for external domain
@@ -382,6 +386,10 @@ Resources:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+              LambdaFunctionAssociations:
+                - EventType: viewer-request
+                  LambdaFunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
             - !Ref 'AWS::NoValue'
 
           ## json for static pages
