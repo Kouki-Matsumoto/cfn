@@ -359,7 +359,7 @@ Resources:
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
               LambdaFunctionAssociations:
-                - EventType: viewer-request
+                - EventType: viewer-response
                   LambdaFunctionARN:
                     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
             - !Ref 'AWS::NoValue'
@@ -387,7 +387,7 @@ Resources:
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
               LambdaFunctionAssociations:
-                - EventType: viewer-request
+                - EventType: viewer-response
                   LambdaFunctionARN:
                     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
             - !Ref 'AWS::NoValue'
