@@ -361,7 +361,7 @@ Resources:
               LambdaFunctionAssociations:
                 - EventType: viewer-request
                   LambdaFunctionARN:
-                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-arn
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
             - !Ref 'AWS::NoValue'
 
           ## magazine for external domain
@@ -389,7 +389,7 @@ Resources:
               LambdaFunctionAssociations:
                 - EventType: viewer-request
                   LambdaFunctionARN:
-                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-arn
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
             - !Ref 'AWS::NoValue'
 
           ## json for static pages
