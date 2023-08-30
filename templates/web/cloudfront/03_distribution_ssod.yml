@@ -333,26 +333,6 @@ Resources:
                 LambdaFunctionARN:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
 
-          ## 番組ページリダイレクト用
-          - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
-            PathPattern: /p/*
-            AllowedMethods:
-              - GET
-              - HEAD
-            CachedMethods:
-              - GET
-              - HEAD
-            Compress: true
-            ViewerProtocolPolicy: redirect-to-https
-            CachePolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
-            OriginRequestPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
-            LambdaFunctionAssociations:
-              - EventType: viewer-request
-                LambdaFunctionARN:
-                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
-
           ## /law リダイレクト用
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
             PathPattern: /law
