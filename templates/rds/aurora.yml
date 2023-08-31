@@ -15,6 +15,7 @@ Metadata:
         - Engine
         - DBSnapshotIdentifier
         - DBInstanceClass
+        - DBInstanceCACertificate
         - DBInstanceReadReplica
         - DBName
         - DBBackupRetentionPeriod
@@ -182,6 +183,17 @@ Parameters:
     AllowedValues: ['true', 'false']
     Default: 'false'
     ConstraintDescription: Enter true or false.
+
+  DBInstanceCACertificate:
+    ConstraintDescription: Node instance class not supported
+    Type: String
+    AllowedPattern: ^[a-z0-9.]*$
+    Default: rds-ca-2019
+    AllowedValues:
+      - rds-ca-2019
+      - rds-ca-ecc384-g1
+      - rds-ca-rsa4096-g1
+      - rds-ca-rsa2048-g1
 
   CPUUtilizationThreshold:
     Description: 'The maximum percentage of CPU usage (set to -1 to disable).'
@@ -531,6 +543,7 @@ Resources:
       DBSubnetGroupName:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-rds-subnet-group
       Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
+      CACertificateIdentifier: DBInstanceCACertificate
       Tags:
       - Key: Name
         Value: !Ref DBCluster
@@ -563,6 +576,7 @@ Resources:
       DBSubnetGroupName:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-rds-subnet-group
       Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
+      CACertificateIdentifier: DBInstanceCACertificate
       Tags:
       - Key: Name
         Value: !Ref DBCluster
