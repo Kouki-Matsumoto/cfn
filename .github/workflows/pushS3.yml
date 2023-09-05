@@ -1,25 +1,71 @@
-name: Push Template to S3
+# This is a basic workflow to help you get started with Actions
 
-on: [ workflow_dispatch ]
+name: Deploy CloudFormation Template to S3 Bucket
 
-# on:
-#   pull_request:
-#     branches:
-#       - master
-#     types:
-#       - closed
-#   push:
-#     branches:
-#       - staging
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "master" branch
+  push:
+    branches:
+      - main
+      - staging
+  # pull_request:
+  #   branches:
+  #     - main
+  #     - staging
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  check-secret:
-    runs-on: ubuntu-latest
-    outputs:
-      my-key: ${{ steps.my-key.outputs.defined }}
+  # This workflow contains a single job called "build"
+  build_deploy_production:
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, prod]
+    environment:
+      name: Production
+    permissions:
+      id-token: write
+      contents: read
+
+    # mainブランチの場合のみ実行
+    if: github.ref == 'refs/heads/main'
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - id: my-key
-        if: "${{ env.MY_KEY != '' }}"
-        run: echo "::set-output name=defined::true"
-        env:
-          MY_KEY: ${{ secrets.PVS_B_STG_AWS_IAM_ROLE_ARN }}
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+        with:
+          ref: main
+
+      - name: Upload to S3 Bucket for CloudFormation Template
+        run: |
+          echo "--- Start Upload for Template. ---"
+          aws s3 sync --delete templates/ s3://${{ vars.S3_UPLOAD_BUCKET_NAME }}/ --exclude "*.md" --exclude "*.git*"
+          echo "--- End Upload for Template. ---"
+
+  build_deploy_staging:
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, stg]
+    environment:
+      name: Staging
+    permissions:
+      id-token: write
+      contents: read
+
+    # stagingブランチの場合のみ実行
+    if: github.ref == 'refs/heads/staging'
+
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+        with:
+          ref: staging
+
+      - name: Upload to S3 Bucket for CloudFormation Template
+        run: |
+          echo "--- Start Upload for Template. ---"
+          aws s3 sync --delete templates/ s3://${{ vars.S3_UPLOAD_BUCKET_NAME }}/ --exclude "*.md" --exclude "*.git*"
+          echo "--- End Upload for Template. ---"
