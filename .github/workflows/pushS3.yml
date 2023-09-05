@@ -20,6 +20,9 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build_deploy_production:
+    # mainブランチの場合のみ実行
+    if: github.ref == 'refs/heads/main'
+
     # The type of runner that the job will run on
     runs-on: [self-hosted, prod]
     environment:
@@ -27,9 +30,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
-    # mainブランチの場合のみ実行
-    if: github.ref == 'refs/heads/main'
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -45,6 +45,8 @@ jobs:
           echo "--- End Upload for Template. ---"
 
   build_deploy_staging:
+    # stagingブランチの場合のみ実行
+    if: github.ref == 'refs/heads/staging'
     # The type of runner that the job will run on
     runs-on: [self-hosted, stg]
     environment:
@@ -52,10 +54,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
-    # stagingブランチの場合のみ実行
-    if: github.ref == 'refs/heads/staging'
-
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
