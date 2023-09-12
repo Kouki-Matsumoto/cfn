@@ -72,6 +72,13 @@ Parameters:
     - '8.0.mysql-aurora.3.01.0'
     - '8.0.mysql-aurora.3.01.1'
     - '8.0.mysql-aurora.3.02.0'
+    - '8.0.mysql-aurora.3.02.1'
+    - '8.0.mysql-aurora.3.02.2'
+    - '8.0.mysql-aurora.3.02.3'
+    - '8.0.mysql-aurora.3.03.0'
+    - '8.0.mysql-aurora.3.03.1'
+    - '8.0.mysql-aurora.3.03.2'
+    - '8.0.mysql-aurora.3.04.0'
     - 'aurora-mysql'
     - 'aurora-postgresql-10.14'
     - 'aurora-postgresql-11.9'
@@ -187,7 +194,6 @@ Parameters:
   DBInstanceCACertificate:
     ConstraintDescription: Node instance class not supported
     Type: String
-    AllowedPattern: ^[a-z0-9.]*$
     Default: rds-ca-2019
     AllowedValues:
       - rds-ca-2019
@@ -322,6 +328,48 @@ Mappings:
     '8.0.mysql-aurora.3.02.0':
       Engine: 'aurora-mysql'
       EngineVersion: '8.0.mysql_aurora.3.02.0'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.02.1':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.02.1'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.02.2':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.02.2'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.02.3':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.02.3'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.03.0':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.03.0'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.03.1':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.03.1'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.03.2':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.03.2'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.04.0':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.04.0'
       Port: 3306
       ClusterParameterGroupFamily: 'aurora-mysql8.0'
       ParameterGroupFamily: 'aurora-mysql8.0'
@@ -543,7 +591,7 @@ Resources:
       DBSubnetGroupName:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-rds-subnet-group
       Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
-      CACertificateIdentifier: DBInstanceCACertificate
+      CACertificateIdentifier: !Ref DBInstanceCACertificate
       Tags:
       - Key: Name
         Value: !Ref DBCluster
@@ -576,7 +624,7 @@ Resources:
       DBSubnetGroupName:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-rds-subnet-group
       Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
-      CACertificateIdentifier: DBInstanceCACertificate
+      CACertificateIdentifier: !Ref DBInstanceCACertificate
       Tags:
       - Key: Name
         Value: !Ref DBCluster
