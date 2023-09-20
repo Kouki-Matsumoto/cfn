@@ -467,6 +467,25 @@ Resources:
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             - !Ref 'AWS::NoValue'
+        
+          ## instructors for static pages
+          - !If
+            - HasCustomerStaticPagesBucketDomainName
+            - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
+              PathPattern: /instructors/*
+              AllowedMethods:
+                - GET
+                - HEAD
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            - !Ref 'AWS::NoValue'
 
           ## resources for static pages
           - !If
