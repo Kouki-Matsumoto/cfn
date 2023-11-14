@@ -251,6 +251,19 @@ Resources:
             Value: max-age=60
             Override: true
 
+  # PublicCacheControlResponseHeadersPolicy
+  PublicCacheControlResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub ${ServiceName}-${ENV}-public-cache-control-res-headers-policy
+        Comment: !Sub ${ServiceName}-${ENV}-public-cache-control-res-headers-policy
+        CustomHeadersConfig:
+          Items:
+          - Header: Cache-Control
+            Value: public, max-age=0, must-revalidate
+            Override: true
+
 Outputs:
   DisabledCachePolicyId:
     Value: !Ref DisabledCachePolicy
@@ -300,3 +313,7 @@ Outputs:
     Value: !Ref ImageResponseHeadersPolicy
     Export:
       Name: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
+  PublicCacheControlResponseHeadersPolicyId:
+    Value: !Ref PublicCacheControlResponseHeadersPolicy
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-public-cache-control-res-headers-policy-id
