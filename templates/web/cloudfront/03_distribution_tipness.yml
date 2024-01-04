@@ -359,7 +359,7 @@ Resources:
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
               LambdaFunctionAssociations:
-                - EventType: viewer-response
+                - EventType: origin-response
                   LambdaFunctionARN:
                     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
             - !Ref 'AWS::NoValue'
@@ -387,7 +387,7 @@ Resources:
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
               LambdaFunctionAssociations:
-                - EventType: viewer-response
+                - EventType: origin-response
                   LambdaFunctionARN:
                     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
             - !Ref 'AWS::NoValue'
@@ -467,7 +467,7 @@ Resources:
               OriginRequestPolicyId:
                 Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             - !Ref 'AWS::NoValue'
-        
+
           ## instructors for static pages
           - !If
             - HasCustomerStaticPagesBucketDomainName
