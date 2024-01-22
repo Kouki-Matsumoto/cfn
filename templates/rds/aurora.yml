@@ -516,7 +516,7 @@ Resources:
       PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
       SnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']
       StorageEncrypted: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !If [HasKmsKey, true, false]]
-      BacktrackWindow: !If [HasEngineMySQL, !Ref DBBacktrackWindow, 0]
+      BacktrackWindow: !If [HasEngineMySQL, !Ref DBBacktrackWindow, !Ref 'AWS::NoValue']
       VpcSecurityGroupIds:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
       Tags:
