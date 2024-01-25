@@ -185,6 +185,12 @@ Resources:
         - IpProtocol: -1
           CidrIp: 113.42.102.154/32
           Description: Fukuoka Office New
+        - IpProtocol: -1
+          CidrIp: 58.5.11.50/32
+          Description: Shibuya Office Main
+        - IpProtocol: -1
+          CidrIp: 152.165.122.0/32
+          Description: Shibuya Office Main
       Tags:
       - Key: Name
         Value: !Sub ${ServiceName}-${ENV}-play-office-sg
