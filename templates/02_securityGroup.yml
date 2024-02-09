@@ -189,7 +189,7 @@ Resources:
           CidrIp: 58.5.11.50/32
           Description: Shibuya Office Main
         - IpProtocol: -1
-          CidrIp: 152.165.122.0/32
+          CidrIp: 152.165.122.124/32
           Description: Shibuya Office Main
       Tags:
       - Key: Name
