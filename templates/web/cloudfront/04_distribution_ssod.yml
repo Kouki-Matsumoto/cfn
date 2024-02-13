@@ -288,12 +288,12 @@ Resources:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
           OriginRequestPolicyId:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
-          LambdaFunctionAssociations:
+          FunctionAssociations:
             - !If
               - enableBasicAuth
               - EventType: viewer-request
-                LambdaFunctionARN:
-                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-function-version
+                FunctionARN:
+                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
               - !Ref AWS::NoValue
         ### Behaviors
         CacheBehaviors:
@@ -312,6 +312,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## 番組ページリダイレクト用
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -332,6 +339,13 @@ Resources:
               - EventType: viewer-request
                 LambdaFunctionARN:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## /law リダイレクト用
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -352,6 +366,13 @@ Resources:
               - EventType: viewer-request
                 LambdaFunctionARN:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## /feature/latest リダイレクト用
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -372,6 +393,13 @@ Resources:
               - EventType: viewer-request
                 LambdaFunctionARN:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## /feature/recommended リダイレクト用
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -392,6 +420,13 @@ Resources:
               - EventType: viewer-request
                 LambdaFunctionARN:
                   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-ssod-program-redirect-function-version
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## sorry pages
           - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
@@ -442,6 +477,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             ResponseHeadersPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## new stores images
           - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores-origin
@@ -460,6 +502,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             ResponseHeadersPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## images
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -476,6 +525,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## assets
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -492,6 +548,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## css
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -508,6 +571,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## js
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -524,6 +594,14 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-js-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
+
         ViewerCertificate:
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021

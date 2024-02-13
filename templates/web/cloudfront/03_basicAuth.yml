@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Base Setting
+        Parameters:
+          - ENV
+          - ServiceName
+
+#スタックパラメーター設定
+Parameters:
+  #環境名
+  ENV:
+    Type: String
+    AllowedValues: ['prod', 'stg', 'dev']
+    ConstraintDescription: Enter prod, stg, or dev.'
+
+  #サービス名
+  ServiceName:
+    Type: String
+    AllowedPattern: ^[a-z0-9-]*$
+    Default: pvs
+    ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
+    Description: Enter service name, like 「pvs」
+
+Resources:
+  ####################################### CloudFront KeyValueStore ############################################
+
+  BasicAuthKeyValueStore:
+    Type: AWS::CloudFront::KeyValueStore
+    Properties:
+      Name: !Sub ${ServiceName}-${ENV}-basic-auth-kvs
+      Comment: !Sub ${ServiceName}-${ENV}-basic-auth-kvs
+      ImportSource:
+        SourceType: S3
+        SourceArn: !Join
+          - ''
+          - - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-files-arn
+            - /common/static/basicAuthUserKeyValue.json
+
+  ####################################### CloudFront Function ############################################
+
+  BasicAuthFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      AutoPublish: true
+      FunctionCode: !Sub |
+        import cf from "cloudfront";
+
+        const kvsId = "${BasicAuthKeyValueStore.Id}";
+
+        // This fails if the key value store is not associated with the function
+        const kvsHandle = cf.kvs(kvsId);
+
+        /**
+        * IPアドレスの範囲チェック
+        * @param {*} ip
+        * @param {*} cidrRanges
+        * @returns
+        */
+        function ipRangeCheck(ip, cidrRanges) {
+          // IPv4アドレスを32ビットの整数に変換
+          function ipToInt(ipAddress) {
+            return (
+              ipAddress.split(".").reduce(function (ipInt, octet) {
+                return (ipInt << 8) + parseInt(octet, 10);
+              }, 0) >>> 0
+            );
+          }
+
+          // CIDR形式のサブネットを32ビットの整数の範囲に変換
+          function cidrToRange(cidr) {
+            const parts = cidr.split("/");
+            const ip = parts[0];
+            const prefixLength = parseInt(parts[1], 10);
+            const mask = (0xffffffff << (32 - prefixLength)) >>> 0;
+            const start = ipToInt(ip) & mask;
+            const end = start + (~mask >>> 0);
+            return [start, end];
+          }
+
+          // IPがCIDRの範囲内にあるかをチェック
+          function ipInRange(ip, range) {
+            const ipInt = ipToInt(ip);
+            return ipInt >= range[0] && ipInt <= range[1];
+          }
+
+          // CIDR配列を処理して、与えられたIPがいずれかの範囲内にあるかを確認
+          for (let i = 0; i < cidrRanges.length; i++) {
+            const range = cidrToRange(cidrRanges[i]);
+            if (ipInRange(ip, range)) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+        /**
+        * エラーレスポンスの生成
+        * @returns
+        */
+        const errorResponse = () => {
+          const body =
+            "<!DOCTYPE html>\n" +
+            "<html>\n" +
+            "<head><title>401 Unauthorized</title></head>\n" +
+            "<body>\n" +
+            "<h1>401 Unauthorized</h1>\n" +
+            "</body>\n" +
+            "</html>";
+
+          return {
+            statusCode: 401,
+            statusDescription: "Unauthorized",
+            body: body,
+            headers: {
+              "www-authenticate": {
+                value: "Basic",
+              },
+            },
+          };
+        };
+
+        /**
+        * メイン関数
+        * @returns
+        */
+        async function handler(event) {
+          const request = event.request;
+          const viewer = event.viewer;
+          const ip = viewer.ip;
+          const headers = request.headers;
+
+          const AUTH_USER = await kvsHandle.get("userId");
+          const AUTH_PASS = await kvsHandle.get("password");
+          const IP_WHITE_LIST = await kvsHandle.get("allowIps");
+          const IP_RANGE_WHITE_LIST = await kvsHandle.get("allowIpRanges");
+
+          // JSONファイルにはシングルクォートで入っているので、ダブルクォートに書き換える
+          const ipWhiteListArray = JSON.parse(IP_WHITE_LIST.replace(/'/g, '"'));
+          const ipRangeWhiteListArray = JSON.parse(
+            IP_RANGE_WHITE_LIST.replace(/'/g, '"')
+          );
+
+          // リクエストIPがホワイトリストと一致しない
+          const ipStatus = !ipWhiteListArray.includes(ip);
+          const ipRangeStatus = !ipRangeCheck(ip, ipRangeWhiteListArray);
+
+          const userString = AUTH_USER + ":" + AUTH_PASS;
+
+          const authString = "Basic " + btoa(userString);
+
+          if (
+            ipStatus &&
+            ipRangeStatus &&
+            (typeof headers.authorization === "undefined" ||
+              headers.authorization.value !== authString)
+          ) {
+            return errorResponse();
+          }
+
+          return request;
+        }
+
+      FunctionConfig:
+        Comment: !Sub ${ServiceName}-${ENV}-basic-auth-function
+        Runtime: cloudfront-js-2.0
+        KeyValueStoreAssociations:
+          - KeyValueStoreARN: !GetAtt 'BasicAuthKeyValueStore.Arn'
+      Name: !Sub ${ServiceName}-${ENV}-basic-auth-function
+
+####################################### Outputs #######################################
+
+Outputs:
+  BasicAuthFunctionArn:
+    Value: !GetAtt 'BasicAuthFunction.FunctionARN'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+  BasicAuthKvsArn:
+    Value: !GetAtt 'BasicAuthKeyValueStore.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-basic-auth-kvs-arn
+  BasicAuthKvsId:
+    Value: !GetAtt 'BasicAuthKeyValueStore.Id'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-basic-auth-kvs-id
+  BasicAuthKvsStatus:
+    Value: !GetAtt 'BasicAuthKeyValueStore.Status'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-basic-auth-knv-status

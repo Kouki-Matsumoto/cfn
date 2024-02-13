@@ -23,7 +23,6 @@ Metadata:
           - AttachWebACL
           - BasicAuth
           - MaintenanceMode
-          - CustomerStaticPages
           - MigrationHubServerID
 
 #スタックパラメーター設定
@@ -91,13 +90,6 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
-  # Customer Static Pages
-  CustomerStaticPages:
-    Type: String
-    AllowedValues: ['true', 'false']
-    Default: 'false'
-    ConstraintDescription: Enter true or false.'
-
   # Basic Auth
   BasicAuth:
     Type: String
@@ -133,7 +125,6 @@ Conditions:
   HasNotDomainName: !Equals [!Ref DomainName, '']
   HasNotCustomerDomain: !Equals [!Ref CustomerDomain, '']
   HasCustomerDomain: !Not [Condition: HasNotCustomerDomain]
-  HasCustomerStaticPages: !Equals [!Ref CustomerStaticPages, 'true']
   enableBasicAuth: !Equals [!Ref BasicAuth, 'true']
   enableMaintenanceMode: !Equals [!Ref MaintenanceMode, 'true']
   HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
@@ -190,38 +181,16 @@ Resources:
               - HeaderName: x-pre-shared-key
                 HeaderValue: !Ref SystemName
 
-          ## Origin for Sitemap
-          # - DomainName:
-          #     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sitemap-domain
-          #   Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sitemap
-          #   OriginPath: !Sub /${ProjectId}
-          #   S3OriginConfig:
-          #     OriginAccessIdentity: !Join
-          #       - ''
-          #       - - origin-access-identity/cloudfront/
-          #         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sitemap-oai
-
           ## Origin for Sorry pages
-          # - DomainName:
-          #     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-domain
-          #   Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
-          #   OriginPath: !Sub /${ProjectId}
-          #   S3OriginConfig:
-          #     OriginAccessIdentity: !Join
-          #       - ''
-          #       - - origin-access-identity/cloudfront/
-          #         - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
-
-          # Origin for STORES Bucket
           - DomainName:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-bucket-domain
-            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
-            OriginPath: !Sub /web/${ProjectId}
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-domain
+            Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
+            OriginPath: !Sub /${ProjectId}
             S3OriginConfig:
               OriginAccessIdentity: !Join
                 - ''
                 - - origin-access-identity/cloudfront/
-                  - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
+                  - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-sorry-pages-oai
 
           ## Origin for NEW STORES Bucket
           - DomainName:
@@ -256,15 +225,6 @@ Resources:
                 - - origin-access-identity/cloudfront/
                   - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-files-oai
 
-          ## Origin for Customer Static Pages
-          # - !If
-          #   - HasCustomerStaticPages
-          #   - DomainName: !GetAtt  StaticPagesBucket.DomainName
-          #     Id: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-customer-static-pages
-          #     S3OriginConfig:
-          #       OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CustomerStaticPagesBucketOriginAccessIdentity}
-          #   - !Ref AWS::NoValue
-
         ## Default Behavior
         DefaultCacheBehavior:
           TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -288,12 +248,12 @@ Resources:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
           OriginRequestPolicyId:
             Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
-          LambdaFunctionAssociations:
+          FunctionAssociations:
             - !If
               - enableBasicAuth
               - EventType: viewer-request
-                LambdaFunctionARN:
-                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-function-version
+                FunctionARN:
+                  Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
               - !Ref AWS::NoValue
         ### Behaviors
         CacheBehaviors:
@@ -312,22 +272,29 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## sorry pages
-          # - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
-          #   PathPattern: /sorry/*
-          #   AllowedMethods:
-          #     - GET
-          #     - HEAD
-          #   CachedMethods:
-          #     - GET
-          #     - HEAD
-          #   Compress: true
-          #   ViewerProtocolPolicy: redirect-to-https
-          #   CachePolicyId:
-          #     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
-          #   OriginRequestPolicyId:
-          #     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
+          - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
+            PathPattern: /sorry/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+            OriginRequestPolicyId:
+              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
 
           ## error pages
           - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-static-files-common
@@ -344,24 +311,6 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
-
-          ## stores images
-          - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores
-            PathPattern: /imgs/*
-            AllowedMethods:
-              - GET
-              - HEAD
-            CachedMethods:
-              - GET
-              - HEAD
-            Compress: true
-            ViewerProtocolPolicy: redirect-to-https
-            CachePolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-1min-policy-id
-            OriginRequestPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
-            ResponseHeadersPolicyId:
-              Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
 
           ## new stores images
           - TargetOriginId: !Sub S3-${ServiceName}-${ENV}-${ProjectId}-stores-origin
@@ -380,6 +329,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-origin-request-policy-id
             ResponseHeadersPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-res-headers-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## images
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -396,6 +352,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-image-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## assets
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -412,6 +375,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## css
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -428,6 +398,13 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-assets-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
 
           ## js
           - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
@@ -444,6 +421,14 @@ Resources:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-js-policy-id
             OriginRequestPolicyId:
               Fn::ImportValue: !Sub ${ServiceName}-${ENV}-static-cache-policy-id
+            FunctionAssociations:
+              - !If
+                - enableBasicAuth
+                - EventType: viewer-request
+                  FunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                - !Ref AWS::NoValue
+
         ViewerCertificate:
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
@@ -502,19 +487,19 @@ Resources:
 ####################################### Route53 ############################################
 
   # ALB Route53 RecordSet
-  # ALBRecord:
-  #   Type: AWS::Route53::RecordSet
-  #   Properties:
-  #     HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
-  #     Name: !Join
-  #       - ''
-  #       - - !If [isProd, '', !Sub '${ENV}-']
-  #         - !Sub ${SystemName}-lb
-  #         - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
-  #     Type: A
-  #     AliasTarget:
-  #       DNSName: !Ref ALBDomainName
-  #       HostedZoneId: Z14GRHDCWA56QT
+  ALBRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !If [isProd, !FindInMap [EnvMaps, Prod, HostedZoneName], !FindInMap [EnvMaps, Stg, HostedZoneName]]
+      Name: !Join
+        - ''
+        - - !If [isProd, '', !Sub '${ENV}-']
+          - !Sub ${SystemName}-lb
+          - !If [isProd, !FindInMap [EnvMaps, Prod, Domain], !FindInMap [EnvMaps, Stg, Domain]]
+      Type: A
+      AliasTarget:
+        DNSName: !Ref ALBDomainName
+        HostedZoneId: Z14GRHDCWA56QT
 
   # CloudFront Route53 RecordSet
   CFRecord:
@@ -545,122 +530,65 @@ Resources:
 
 ####################################### S3 ############################################
 
-  # Static Pages S3Bucket
-  # StaticPagesBucket:
-  #   Type: AWS::S3::Bucket
-  #   DeletionPolicy: Delete
-  #   Condition: HasCustomerStaticPages
-  #   Properties:
-  #     BucketName: !Sub ${ServiceName}-${ENV}-${SystemName}-static-pages-bucket
-  #     LifecycleConfiguration:
-  #       Rules:
-  #         - Id: !Sub ${ServiceName}-${ENV}-${SystemName}-static-pages-lifecycle
-  #           Status: Enabled
-  #           NoncurrentVersionExpirationInDays: 30
-  #     PublicAccessBlockConfiguration:
-  #       BlockPublicAcls: true
-  #       BlockPublicPolicy: true
-  #       IgnorePublicAcls: true
-  #       RestrictPublicBuckets: true
-  #     VersioningConfiguration:
-  #       Status: Enabled
-  #     Tags:
-  #       - Key: Name
-  #         Value: !Sub ${SystemName}-${ENV}-static-pages-bucket
-  #       - Key: ENV
-  #         Value: !Ref ENV
-  #       - Key: Project
-  #         Value: !Ref ServiceName
-  #       - Key: SystemName
-  #         Value: !Ref SystemName
-  #       - Key: ProjectId
-  #         Value: !Ref ProjectId
-  #       - !If
-  #         - HasMigrationHubServerID
-  #         - Key: map-migrated
-  #           Value: !Ref MigrationHubServerID
-  #         - !Ref AWS::NoValue
-
-  # # S3Bucket Policy To Allow Access From CloudFront OAI
-  # StaticPagesBucketPolicy:
-  #   Type: AWS::S3::BucketPolicy
-  #   Condition: HasCustomerStaticPages
-  #   Properties:
-  #     Bucket: !Ref StaticPagesBucket
-  #     PolicyDocument:
-  #       Statement:
-  #         - Action: s3:GetObject
-  #           Effect: Allow
-  #           Resource: !Sub arn:aws:s3:::${StaticPagesBucket}/*
-  #           Principal:
-  #             AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CustomerStaticPagesBucketOriginAccessIdentity}
-
-  # # Customer Static Pages Origin Access Identity
-  # CustomerStaticPagesBucketOriginAccessIdentity:
-  #   Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
-  #   Properties:
-  #     CloudFrontOriginAccessIdentityConfig:
-  #       Comment: !Sub ${ServiceName}-${ENV}-${SystemName}-customer-static-pages-identity
-
 ####################################### CloudWatch Alarms ############################################
 
   # CloudFront 5xx Alarm
-  # CloudFront5xxAlarm:
-  #   Type: AWS::CloudWatch::Alarm
-  #   Properties:
-  #     AlarmName: !Sub 'CloudFront-5xx-Error-Rate ${ServiceName}-${ENV}-${SystemName}'
-  #     AlarmDescription: !Sub '${SystemName}_${ENV} CloudFront 5xxレート上昇'
-  #     ActionsEnabled: true
-  #     Namespace: AWS/CloudFront
-  #     MetricName: 5xxErrorRate
-  #     Dimensions:
-  #       - Name: DistributionId
-  #         Value: !Ref WebDistribution
-  #       - Name: Region
-  #         Value: Global
-  #     Statistic: Maximum
-  #     Period: 300
-  #     Threshold: 1.0
-  #     ComparisonOperator: GreaterThanOrEqualToThreshold
-  #     TreatMissingData: notBreaching
-  #     EvaluationPeriods: 1
-  #     AlarmActions:
-  #       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
-  #     OKActions:
-  #       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+  CloudFront5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'CloudFront-5xx-Error-Rate ${ServiceName}-${ENV}-${SystemName}'
+      AlarmDescription: !Sub '${SystemName}_${ENV} CloudFront 5xxレート上昇'
+      ActionsEnabled: true
+      Namespace: AWS/CloudFront
+      MetricName: 5xxErrorRate
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref WebDistribution
+        - Name: Region
+          Value: Global
+      Statistic: Maximum
+      Period: 300
+      Threshold: 1.0
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      EvaluationPeriods: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
-  # # ACM DaysToExpiry
-  # ACMDaysToExpiry:
-  #   Type: AWS::CloudWatch::Alarm
-  #   Condition: HasCustomerDomain
-  #   Properties:
-  #     AlarmName: !Sub 'ACM DaysToExpiry [${CustomerDomain}]'
-  #     AlarmDescription: 'ACM証明書有効期限 30日前'
-  #     ActionsEnabled: true
-  #     Namespace: AWS/CertificateManager
-  #     MetricName: DaysToExpiry
-  #     Dimensions:
-  #       - Name: CertificateArn
-  #         Value: !Ref SSLArn
-  #     Statistic: Minimum
-  #     Period: 86400
-  #     Threshold: 30.0
-  #     ComparisonOperator: LessThanOrEqualToThreshold
-  #     TreatMissingData: missing
-  #     EvaluationPeriods: 1
-  #     AlarmActions:
-  #       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
-  #     OKActions:
-  #       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+  # ACM DaysToExpiry
+  ACMDaysToExpiry:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasCustomerDomain
+    Properties:
+      AlarmName: !Sub 'ACM DaysToExpiry [${CustomerDomain}]'
+      AlarmDescription: 'ACM証明書有効期限 30日前'
+      ActionsEnabled: true
+      Namespace: AWS/CertificateManager
+      MetricName: DaysToExpiry
+      Dimensions:
+        - Name: CertificateArn
+          Value: !Ref SSLArn
+      Statistic: Minimum
+      Period: 86400
+      Threshold: 30.0
+      ComparisonOperator: LessThanOrEqualToThreshold
+      TreatMissingData: missing
+      EvaluationPeriods: 1
+      AlarmActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
+      OKActions:
+        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cloudwatch-alarm-topic
 
 ####################################### Outputs #######################################
 
-# Outputs:
-  # WebDistributionDomainName:
-  #   Value: !GetAtt 'WebDistribution.DomainName'
-  #   Export:
-  #     Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-cf-domain
-  # CustomerStaticPagesBucketOAI:
-  #   Value: !Ref CustomerStaticPagesBucketOriginAccessIdentity
-  #   Export:
-  #     Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-customer-static-bucket-oai
+Outputs:
+  WebDistributionId:
+    Value: !Ref WebDistribution
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-cf-distribution-id
+  WebDistributionDomainName:
+    Value: !GetAtt 'WebDistribution.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-${ProjectId}-cf-domain
