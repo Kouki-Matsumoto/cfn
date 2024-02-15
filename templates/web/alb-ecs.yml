@@ -301,12 +301,8 @@ Resources:
         - Key: access_logs.s3.prefix
           Value: !Sub '${SystemName}/public'
       SecurityGroups:
-      - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-alb-sg-id
-      # WEB環境の場合はopenのSecurityグループをアタッチする
-      - !If
-        - isProd
-        - !Ref 'AWS::NoValue'
-        - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-open-alb-sg-id
+      # CloudFrontからのHTTPSアクセスのみを許可する
+      - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-alb-https-sg-id
       Subnets:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-public-subnet-a
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-public-subnet-c
@@ -349,8 +345,8 @@ Resources:
       - Type: fixed-response
         FixedResponseConfig:
           ContentType: text/plain
-          StatusCode: 404
-          MessageBody: 'NotFound'
+          StatusCode: 403
+          MessageBody: 'Forbidden'
 
   # ------------------------------------------------------------#
   # ALB Blue/Green Listener Rule
@@ -379,25 +375,6 @@ Resources:
             Weight: 1
           - TargetGroupArn: !Ref ALBTargetGreen
             Weight: 0
-
-  # ------------------------------------------------------------#
-  # ALB HTTP Listener
-  # ------------------------------------------------------------#
-  ALBNoSSLRedirectListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      Port: 80
-      Protocol: HTTP
-      LoadBalancerArn: !Ref PublicALB
-      DefaultActions:
-      - Type: redirect
-        RedirectConfig:
-          Host: '#{host}'
-          Path: '/#{path}'
-          Port: 443
-          Protocol: HTTPS
-          Query: '#{query}'
-          StatusCode: HTTP_301
 
 ####################################### ECR ############################################
 

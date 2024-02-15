@@ -115,25 +115,32 @@ Resources:
   # Internal Network
   CommonSecurityGroup:
     Type: AWS::EC2::SecurityGroup
-    DependsOn: ALBSecurityGroup
     Properties:
       GroupName: !Sub ${ServiceName}-${ENV}-common-sg
       GroupDescription: !Sub ${ServiceName}-${ENV}-common-sq
       VpcId:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
+        ## ECSターゲットグループのポート番号へのアクセス許可用
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
           SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
+        ## いずれ削除する
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
+        ## いずれ削除する
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           SourceSecurityGroupId: !GetAtt  ALBSecurityGroup.GroupId
+        ## ECSターゲットグループのポート番号へのアクセス許可用
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !GetAtt  CloudFrontALBHttpsSecurityGroup.GroupId
         - !If
           - HasPeerVpc
           - IpProtocol: tcp
@@ -187,13 +194,65 @@ Resources:
           Description: Fukuoka Office New
         - IpProtocol: -1
           CidrIp: 58.5.11.50/32
-          Description: Shibuya Office Main
+          Description: Shibuya Sorasta (Main)
         - IpProtocol: -1
           CidrIp: 152.165.122.124/32
-          Description: Shibuya Office Main
+          Description: Shibuya Sorasta (Sub)
       Tags:
       - Key: Name
         Value: !Sub ${ServiceName}-${ENV}-play-office-sg
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
+
+  # Allow only access IP from CloudFront for HTTPS
+  CloudFrontALBHttpSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ServiceName}-${ENV}-cf-alb-http-sg
+      GroupDescription: !Sub ${ServiceName}-${ENV}-cf-alb-http-sg
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: pl-58a04531
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-cf-alb-http-sg
+      - Key: ENV
+        Value: !Ref ENV
+      - Key: Project
+        Value: !Ref ServiceName
+      - !If
+        - HasMigrationHubServerID
+        - Key: map-migrated
+          Value: !Ref MigrationHubServerID
+        - !Ref AWS::NoValue
+
+  # Allow only access IP from CloudFront for HTTP
+  CloudFrontALBHttpsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ServiceName}-${ENV}-cf-alb-https-sg
+      GroupDescription: !Sub ${ServiceName}-${ENV}-cf-alb-https-sg
+      VpcId:
+        Fn::ImportValue: !Sub ${ServiceName}-${ENV}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourcePrefixListId: pl-58a04531
+      Tags:
+      - Key: Name
+        Value: !Sub ${ServiceName}-${ENV}-cf-alb-https-sg
       - Key: ENV
         Value: !Ref ENV
       - Key: Project
@@ -221,3 +280,11 @@ Outputs:
     Value: !GetAtt OpenALBSecurityGroup.GroupId
     Export:
       Name: !Sub ${ServiceName}-${ENV}-open-alb-sg-id
+  CloudFrontALBHttpSecurityGroupId:
+    Value: !GetAtt CloudFrontALBHttpSecurityGroup.GroupId
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-cf-alb-http-sg-id
+  CloudFrontALBHttpsSecurityGroupId:
+    Value: !GetAtt CloudFrontALBHttpsSecurityGroup.GroupId
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-cf-alb-https-sg-id
