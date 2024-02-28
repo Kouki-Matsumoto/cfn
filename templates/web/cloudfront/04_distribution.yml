@@ -23,6 +23,7 @@ Metadata:
           - AttachWebACL
           - BasicAuth
           - MaintenanceMode
+          - UvpSbpsCGI
           - MigrationHubServerID
 
 #スタックパラメーター設定
@@ -104,6 +105,13 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.'
 
+  # Maintenance Mode
+  UvpSbpsCGI:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.'
+
   # MigrationHubServerID
   MigrationHubServerID:
     Type: String
@@ -127,6 +135,7 @@ Conditions:
   HasCustomerDomain: !Not [Condition: HasNotCustomerDomain]
   enableBasicAuth: !Equals [!Ref BasicAuth, 'true']
   enableMaintenanceMode: !Equals [!Ref MaintenanceMode, 'true']
+  enableUvpSbpsCGI: !Equals [!Ref UvpSbpsCGI, 'true']
   HasMigrationHubServerID: !Not [!Equals [!Ref MigrationHubServerID, '']]
 
 Resources:
@@ -279,6 +288,42 @@ Resources:
                   FunctionARN:
                     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
                 - !Ref AWS::NoValue
+
+          ## CGI notification of SBPS used in UVP
+          - !If
+            - enableUvpSbpsCGI
+            - TargetOriginId: !Sub ELB-${ServiceName}-${ENV}-${SystemName}
+              PathPattern: /sbps/pagecon
+              AllowedMethods:
+                - GET
+                - HEAD
+                - DELETE
+                - POST
+                - OPTIONS
+                - PUT
+                - PATCH
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-cloudfront-policy-id
+              LambdaFunctionAssociations:
+                - EventType: origin-request
+                  IncludeBody: true
+                  LambdaFunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-uvp-override-header-value-function-version
+              FunctionAssociations:
+                - !If
+                  - enableBasicAuth
+                  - EventType: viewer-request
+                    FunctionARN:
+                      Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                  - !Ref AWS::NoValue
+            - !Ref 'AWS::NoValue'
 
           ## sorry pages
           - TargetOriginId:  !Sub S3-${ServiceName}-${ENV}-${ProjectId}-sorry-pages
