@@ -23,10 +23,20 @@ Metadata:
         - DBMasterUsername
         - DBMasterUserPassword
         - PreferredBackupWindow
-        - PreferredMaintenanceWindow
         - KmsKeyArn
         - UseDefaultClusterParameterGroup
         - UseDefaultParameterGroup
+        - AllowMajorVersionUpgrade
+        - AutoMinorVersionUpgrade
+        - EnableCloudwatchLogsExports
+    - Label:
+        default: MaintenanceWindow Setting
+      Parameters:
+        - PreferredClusterMaintenanceWindow
+        - PreferredInstanceMaintenanceWindow
+        - PreferredReplicaInstanceMaintenanceWindow
+    - Label:
+        default: 'RDS Parameters'
     - Label:
         default: 'Alerting Parameters'
       Parameters:
@@ -75,6 +85,7 @@ Parameters:
     - '8.0.mysql-aurora.3.04.1'
     - '8.0.mysql-aurora.3.05.0'
     - '8.0.mysql-aurora.3.05.1'
+    - '8.0.mysql-aurora.3.05.2'
     - 'aurora-mysql'
     - 'aurora-postgresql-13.7'
     - 'aurora-postgresql-13.8'
@@ -174,10 +185,20 @@ Parameters:
     Type: String
     Default: '09:54-10:24'
 
-  PreferredMaintenanceWindow:
+  PreferredClusterMaintenanceWindow:
     Description: The weekly time range (in UTC) during which system maintenance can occur.
     Type: String
-    Default: 'sat:07:00-sat:07:30'
+    Default: 'thu:05:00-thu:06:00'
+
+  PreferredInstanceMaintenanceWindow:
+    Description: The weekly time range (in UTC) during which system maintenance can occur.
+    Type: String
+    Default: 'thu:06:00-thu:07:00'
+
+  PreferredReplicaInstanceMaintenanceWindow:
+    Description: The weekly time range (in UTC) during which system maintenance can occur.
+    Type: String
+    Default: 'thu:07:00-thu:08:00'
 
   KmsKeyArn:
     Description: 'Optional KMS key ARN.'
@@ -196,6 +217,18 @@ Parameters:
     Default: 'false'
     ConstraintDescription: Enter true or false.
 
+  AllowMajorVersionUpgrade:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.
+
+  AutoMinorVersionUpgrade:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    ConstraintDescription: Enter true or false.
+
   DBInstanceCACertificate:
     ConstraintDescription: Node instance class not supported
     Type: String
@@ -205,6 +238,11 @@ Parameters:
       - rds-ca-ecc384-g1
       - rds-ca-rsa4096-g1
       - rds-ca-rsa2048-g1
+
+  EnableCloudwatchLogsExports:
+    Type: CommaDelimitedList
+    Default: ''
+    ConstraintDescription: Enter true or false.
 
   CPUUtilizationThreshold:
     Description: 'The maximum percentage of CPU usage (set to -1 to disable).'
@@ -342,6 +380,12 @@ Mappings:
       Port: 3306
       ClusterParameterGroupFamily: 'aurora-mysql8.0'
       ParameterGroupFamily: 'aurora-mysql8.0'
+    '8.0.mysql-aurora.3.05.2':
+      Engine: 'aurora-mysql'
+      EngineVersion: '8.0.mysql_aurora.3.05.2'
+      Port: 3306
+      ClusterParameterGroupFamily: 'aurora-mysql8.0'
+      ParameterGroupFamily: 'aurora-mysql8.0'
     'aurora-postgresql-13.7':
       Engine: 'aurora-postgresql'
       EngineVersion: '13.7'
@@ -443,6 +487,7 @@ Conditions:
   HasKmsKey: !Not [!Equals [!Ref KmsKeyArn, '']]
   HasDBSnapshotIdentifier: !Not [!Equals [!Ref DBSnapshotIdentifier, '']]
   HasReadReplica: !Equals [!Ref DBInstanceReadReplica, 'true']
+  HasEnableCloudwatchLogsExports: !Not [!Equals [ !Join [ ',', !Ref EnableCloudwatchLogsExports ], '' ]]
   HasEngineMySQL: !Or [!Equals [!FindInMap [EngineMap, !Ref Engine, Engine], 'aurora'], !Equals [!FindInMap [EngineMap, !Ref Engine, Engine], 'aurora-mysql']]
   HasNotDefaultClusterParameterGroup: !Not [!Equals [!Ref UseDefaultClusterParameterGroup, 'true']]
   HasNotDefaultParameterGroup: !Not [!Equals [!Ref UseDefaultParameterGroup, 'true']]
@@ -513,10 +558,11 @@ Resources:
       - !Ref DBMasterUserPassword
       Port: !FindInMap [EngineMap, !Ref Engine, Port]
       PreferredBackupWindow: !Ref PreferredBackupWindow
-      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      PreferredMaintenanceWindow: !Ref PreferredClusterMaintenanceWindow
       SnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']
       StorageEncrypted: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !If [HasKmsKey, true, false]]
       BacktrackWindow: !If [HasEngineMySQL, !Ref DBBacktrackWindow, !Ref 'AWS::NoValue']
+      EnableCloudwatchLogsExports: !If [HasEnableCloudwatchLogsExports, !Ref EnableCloudwatchLogsExports, !Ref 'AWS::NoValue']
       VpcSecurityGroupIds:
       - Fn::ImportValue: !Sub ${ServiceName}-${ENV}-common-sg-id
       Tags:
@@ -535,8 +581,8 @@ Resources:
   DBInstanceA:
     Type: 'AWS::RDS::DBInstance'
     Properties:
-      AllowMajorVersionUpgrade: false
-      AutoMinorVersionUpgrade: true
+      AllowMajorVersionUpgrade: !Ref AllowMajorVersionUpgrade
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
       CopyTagsToSnapshot: true
       DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
@@ -568,8 +614,8 @@ Resources:
     Condition: HasReadReplica
     Type: 'AWS::RDS::DBInstance'
     Properties:
-      AllowMajorVersionUpgrade: false
-      AutoMinorVersionUpgrade: true
+      AllowMajorVersionUpgrade: !Ref AllowMajorVersionUpgrade
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
       CopyTagsToSnapshot: true
       DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
@@ -584,6 +630,7 @@ Resources:
         Fn::ImportValue: !Sub ${ServiceName}-${ENV}-rds-subnet-group
       Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
       CACertificateIdentifier: !Ref DBInstanceCACertificate
+      PreferredMaintenanceWindow: !Ref PreferredReplicaInstanceMaintenanceWindow
       Tags:
       - Key: Name
         Value: !Ref DBCluster
