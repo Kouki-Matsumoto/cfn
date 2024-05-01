@@ -653,6 +653,10 @@ Outputs:
       Name: !Sub ${ServiceName}-${ENV}-stores-bucket-oai
 
   # StoreSettingsBucket
+  StoreSettingsBucketName:
+    Value: !Ref StoreSettingsBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-stores-bucket-name
   StoreSettingsBucketArn:
     Value: !GetAtt 'StoreSettingsBucket.Arn'
     Export:
@@ -667,6 +671,10 @@ Outputs:
       Name: !Sub ${ServiceName}-${ENV}-stores-oai
 
   # SitemapBucket
+  SitemapBucketName:
+    Value: !Ref SitemapBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-sitemap-bucket-name
   SitemapBucketArn:
     Value: !GetAtt 'SitemapBucket.Arn'
     Export:
@@ -719,6 +727,10 @@ Outputs:
       Name: !Sub ${ServiceName}-${ENV}-content-thumbnail-bucket-oai
 
   # StaticFilesBucket
+  StaticFilesBucketName:
+    Value: !Ref StaticFilesBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-static-files-bucket-name
   StaticFilesBucketArn:
     Value: !GetAtt 'StaticFilesBucket.Arn'
     Export:
