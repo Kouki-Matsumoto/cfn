@@ -595,6 +595,33 @@ Resources:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${ServiceName}-${ENV}-static-files-identity
 
+  ######################### CSV Export on S3 Bucket #########################
+
+  CsvExportBucket:
+    DeletionPolicy: Retain
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ServiceName}-${ENV}-csv-export-output
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-${ENV}-csv-export-output
+        - Key: ENV
+          Value: !Ref ENV
+        - Key: Project
+          Value: !Ref ServiceName
+        - !If
+          - HasMigrationHubServerID
+          - Key: map-migrated
+            Value: !Ref MigrationHubServerID
+          - !Ref AWS::NoValue
+
 Outputs:
   # ALBLogsBucket
   ALBLogsBucketName:
@@ -743,3 +770,17 @@ Outputs:
     Value: !Ref StaticFilesBucketOriginAccessIdentity
     Export:
       Name: !Sub ${ServiceName}-${ENV}-static-files-oai
+
+  # CsvExportBucket
+  CsvExportBucketName:
+    Value: !Ref CsvExportBucket
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-csv-export-output-bucket-name
+  CsvExportBucketArn:
+    Value: !GetAtt 'CsvExportBucket.Arn'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-csv-export-output-bucket-arn
+  CsvExportBucketDomainName:
+    Value: !GetAtt 'CsvExportBucket.DomainName'
+    Export:
+      Name: !Sub ${ServiceName}-${ENV}-csv-export-output-bucket-domain
