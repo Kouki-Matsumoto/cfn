@@ -203,7 +203,7 @@ Resources:
           - !If
             - HasExternalDomainName
             - CustomOriginConfig:
-                OriginProtocolPolicy: https-only
+                OriginProtocolPolicy: http-only
                 OriginKeepaliveTimeout: 5
                 OriginSSLProtocols:
                     - TLSv1.2
@@ -361,10 +361,24 @@ Resources:
                 - HEAD
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
-              CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
-              OriginRequestPolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+              # Legacy cache Settings
+              ForwardedValues:
+                  QueryString: true
+                  Cookies:
+                      Forward: all
+                  Headers:
+                    - Authorization
+                    - CloudFront-Forwarded-Proto
+                    - Host
+              MinTTL: 0
+              MaxTTL: 31536000
+              DefaultTTL: 86400
+
+              # Cache policy and origin request policy
+              # CachePolicyId:
+              #   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              # OriginRequestPolicyId:
+              #   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
               LambdaFunctionAssociations:
                 - EventType: origin-response
                   LambdaFunctionARN:
@@ -396,10 +410,22 @@ Resources:
                 - HEAD
               Compress: true
               ViewerProtocolPolicy: redirect-to-https
-              CachePolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
-              OriginRequestPolicyId:
-                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+              # Legacy cache Settings
+              ForwardedValues:
+                  QueryString: true
+                  Cookies:
+                      Forward: all
+                  Headers:
+                    - Authorization
+                    - CloudFront-Forwarded-Proto
+                    - Host
+              MinTTL: 0
+              MaxTTL: 31536000
+              DefaultTTL: 86400
+              # CachePolicyId:
+              #   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              # OriginRequestPolicyId:
+              #   Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
               LambdaFunctionAssociations:
                 - EventType: origin-response
                   LambdaFunctionARN:
