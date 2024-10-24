@@ -343,6 +343,114 @@ Resources:
                     Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
                 - !Ref AWS::NoValue
 
+          ## /magazine for external domain
+          - !If
+            - HasExternalDomainName
+            - TargetOriginId:  !Sub Custom-${ServiceName}-${ENV}-${ProjectId}-${ExternalDomainName}
+              PathPattern: /magazine/wp-content/siteguard/*
+              AllowedMethods:
+                - GET
+                - HEAD
+                - DELETE
+                - POST
+                - OPTIONS
+                - PUT
+                - PATCH
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              # Cache policy and origin request policy
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+              LambdaFunctionAssociations:
+                - EventType: origin-response
+                  LambdaFunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
+              FunctionAssociations:
+                - !If
+                  - enableBasicAuth
+                  - EventType: viewer-request
+                    FunctionARN:
+                      Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                  - !Ref AWS::NoValue
+            - !Ref 'AWS::NoValue'
+
+          ## magazine for external domain
+          - !If
+            - HasExternalDomainName
+            - TargetOriginId:  !Sub Custom-${ServiceName}-${ENV}-${ProjectId}-${ExternalDomainName}
+              PathPattern: /magazine/wp-admin
+              AllowedMethods:
+                - GET
+                - HEAD
+                - DELETE
+                - POST
+                - OPTIONS
+                - PUT
+                - PATCH
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              # Cache policy and origin request policy
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+              LambdaFunctionAssociations:
+                - EventType: origin-response
+                  LambdaFunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
+              FunctionAssociations:
+                - !If
+                  - enableBasicAuth
+                  - EventType: viewer-request
+                    FunctionARN:
+                      Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                  - !Ref AWS::NoValue
+            - !Ref 'AWS::NoValue'
+
+          ## magazine for external domain
+          - !If
+            - HasExternalDomainName
+            - TargetOriginId:  !Sub Custom-${ServiceName}-${ENV}-${ProjectId}-${ExternalDomainName}
+              PathPattern: /magazine/wp-admin/*
+              AllowedMethods:
+                - GET
+                - HEAD
+                - DELETE
+                - POST
+                - OPTIONS
+                - PUT
+                - PATCH
+              CachedMethods:
+                - GET
+                - HEAD
+              Compress: true
+              ViewerProtocolPolicy: redirect-to-https
+              # Cache policy and origin request policy
+              CachePolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-disabled-policy-id
+              OriginRequestPolicyId:
+                Fn::ImportValue: !Sub ${ServiceName}-${ENV}-allviewer-policy-id
+              LambdaFunctionAssociations:
+                - EventType: origin-response
+                  LambdaFunctionARN:
+                    Fn::ImportValue: !Sub ${ServiceName}-${ENV}-cf-override-response-status-version
+              FunctionAssociations:
+                - !If
+                  - enableBasicAuth
+                  - EventType: viewer-request
+                    FunctionARN:
+                      Fn::ImportValue: !Sub ${ServiceName}-${ENV}-basic-auth-cf-function-arn
+                  - !Ref AWS::NoValue
+            - !Ref 'AWS::NoValue'
+
           ## magazine for external domain
           - !If
             - HasExternalDomainName
