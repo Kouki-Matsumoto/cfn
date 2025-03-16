@@ -31,25 +31,25 @@ Parameters:
   ServiceName:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    Default: play-store
+    Default: rare-light
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
-    Description: Enter service name, like 「play-store」
+    Description: Enter service name, like 「rare-light」
 
   StoresBucketReplicationName:
     Type: String
-    Description: Enter service name, like 「pvs-b-stg-stores-bucket-us」
+    Description: Enter service name, like 「rare-light-b-stg-stores-bucket-us」
 
   StoreSettingsBucketReplicationName:
     Type: String
-    Description: Enter service name, like 「pvs-b-stg-stores-us」
+    Description: Enter service name, like 「rare-light-b-stg-stores-us」
 
   SitemapBucketReplicationName:
     Type: String
-    Description: Enter service name, like 「pvs-b-stg-sitemap-bucket」
+    Description: Enter service name, like 「rare-light-b-stg-sitemap-bucket」
 
   StaticFilesBucketReplicationName:
     Type: String
-    Description: Enter service name, like 「pvs-b-stg-static-files-us」
+    Description: Enter service name, like 「rare-light-b-stg-static-files-us」
 
   # MigrationHubServerID
   MigrationHubServerID:

@@ -26,9 +26,9 @@ Parameters:
   ServiceName:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    Default: pvs
+    Default: rare-light
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
-    Description: Enter service name, like 「pvs」
+    Description: Enter service name, like 「rare-light」
 
   # Project ID
   ProjectId:
@@ -55,13 +55,13 @@ Resources:
       BucketName: !Join
         - ''
         - - !If [isProd, '', !Sub '${ENV}-']
-          - !Sub play-stores-${ProjectId}
+          - !Sub rare-lights-${ProjectId}
       LifecycleConfiguration:
         Rules:
           - Id: !Join
             - ''
             - - !If [isProd, '', !Sub '${ENV}-']
-              - !Sub play-stores-${ProjectId}
+              - !Sub rare-lights-${ProjectId}
             Status: Enabled
             NoncurrentVersionExpirationInDays: 30
       PublicAccessBlockConfiguration:

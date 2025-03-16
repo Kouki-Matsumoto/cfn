@@ -32,9 +32,9 @@ Parameters:
   ServiceName:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    Default: play-store
+    Default: rare-light
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
-    Description: Enter service name, like 「play-store」
+    Description: Enter service name, like 「rare-light」
 
   # SNS Topic サブスクリプション用Lambda
   SubscriptionLambdaFunctionArn:
@@ -45,8 +45,8 @@ Parameters:
   SubscriptionMailAddress:
     Type: String
     AllowedPattern: ^[a-zA-Z0-9_+-]+(.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$
-    Default: playstores_dev@play.jp
-    Description: Enter e-mail address, like ?playstores_dev@play.jp?
+    Default: m.k.o.yuzuriha@gmail.com
+    Description: Enter e-mail address, like ?m.k.o.yuzuriha@gmail.com?
 
   # MigrationHubServerID
   MigrationHubServerID:

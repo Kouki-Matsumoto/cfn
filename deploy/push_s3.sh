@@ -13,15 +13,15 @@ readonly option=$2
 case "${env}" in
   "stg")
     echo "--- Start for staging ---"
-    readonly aws_account="179017469188"
-    readonly bucket_name="pvs-b-${env}-cfn-templates-bucket"
+    readonly aws_account=""
+    readonly bucket_name="rare-light-b-${env}-cfn-templates-bucket"
     readonly branch_name="staging"
     ;;
   "prod")
     echo "--- Start for production ---"
-    readonly aws_account="845168618390"
-    readonly bucket_name="pvs-${env}-cfn-templates-bucket"
-    readonly branch_name="master"
+    readonly aws_account=""
+    readonly bucket_name="rare-light-${env}-cfn-templates-bucket"
+    readonly branch_name="main"
     ;;
   *)
     echo "--- Error !! ---"

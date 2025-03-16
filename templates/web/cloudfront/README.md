@@ -12,10 +12,10 @@
 ## AWS S3
 ### パラメータ
 
-| 変数 | 日本語名 | 備考 |
-| :---| :---: | :---: |
-| `ENV` | 環境名 ||
-| `ServiceName` | サービス名 ||
+| 変数          |  日本語名  | 備考  |
+| :------------ | :--------: | :---: |
+| `ENV`         |   環境名   |       |
+| `ServiceName` | サービス名 |       |
 
 ### デプロイ
 
@@ -37,12 +37,12 @@
 
   ```
   aws cloudformation deploy \
-  --stack-name pvs-stg-cf-bucket \
+  --stack-name rare-light-stg-cf-bucket \
   --template-file 01_s3Bucket.yml \
   --region "us-east-1" \
   --parameter-overrides \
     ENV=stg \
-    ServiceName=pvs
+    ServiceName=rare-light
   ```
 
   </div>
@@ -53,16 +53,16 @@
 ## AWS Cloud Front
 ### パラメータ
 
-| 変数 | 日本語名 | 備考 |
-| :---| :---: | :---: |
-| `ENV` | 環境名 ||
-| `ServiceName` | サービス名 ||
-| `SystemName` | システム名 ||
-| `CustomerName` | 事業者名 ||
-| `SSLArn` | ACM SSL証明書 ARN ||
-| `ALBDomainName` | ALB DNS名 |必須|
-| `DistributionDomainName` | CloudFront CNAMEドメイン |省略可|
-| `AttachWebACL` | WAF WebACLのアタッチ | true -> WebACLを使用する, false -> WebACLを使用しない ※ENV＝prodの場合はtrueでも使用しない |
+| 変数                     |         日本語名         |                                            備考                                            |
+| :----------------------- | :----------------------: | :----------------------------------------------------------------------------------------: |
+| `ENV`                    |          環境名          |                                                                                            |
+| `ServiceName`            |        サービス名        |                                                                                            |
+| `SystemName`             |        システム名        |                                                                                            |
+| `CustomerName`           |         事業者名         |                                                                                            |
+| `SSLArn`                 |    ACM SSL証明書 ARN     |                                                                                            |
+| `ALBDomainName`          |        ALB DNS名         |                                            必須                                            |
+| `DistributionDomainName` | CloudFront CNAMEドメイン |                                           省略可                                           |
+| `AttachWebACL`           |   WAF WebACLのアタッチ   | true -> WebACLを使用する, false -> WebACLを使用しない ※ENV＝prodの場合はtrueでも使用しない |
 
 > ℹ︎ **Info**: 東京リージョンのOutputは参照できないため、パラメータとして渡す必要がある。
 
@@ -91,12 +91,12 @@
   e.g.
   ```
   aws cloudformation deploy \
-  --stack-name pvs-stg-web-cf \
+  --stack-name rare-light-stg-web-cf \
   --template-file 02_cloudfront.yml \
   --region "us-east-1" \
   --parameter-overrides \
     ENV=stg \
-    ServiceName=pvs \
+    ServiceName=rare-light \
     SystemName=web \
     CustomerName=tipness \
     SSLArn=arn:aws:acm:us-east-1:845168618390:certificate/cc73e8da-4e30-48a2-8c4f-5e1cb36aec09
@@ -113,12 +113,12 @@
 ## AWS WAF
 ### パラメータ
 
-| 変数 | 日本語名 | 備考 |
-| :---| :---: | :---: |
-| `ENV` | 環境名 ||
-| `ServiceName` | サービス名 ||
-| `SystemName` | システム名 ||
-| `CustomerName` | 事業者名 ||
+| 変数           |  日本語名  | 備考  |
+| :------------- | :--------: | :---: |
+| `ENV`          |   環境名   |       |
+| `ServiceName`  | サービス名 |       |
+| `SystemName`   | システム名 |       |
+| `CustomerName` |  事業者名  |       |
 
 ### デプロイ
 
@@ -141,12 +141,12 @@
   e.g.
   ```
   aws cloudformation deploy \
-  --stack-name pvs-stg-tipness-waf \
+  --stack-name rare-light-stg-tipness-waf \
   --template-file waf.yml \
   --region "us-east-1" \
   --parameter-overrides \
     ENV=stg \
-    ServiceName=pvs \
+    ServiceName=rare-light \
     SystemName=web \
     CustomerName=tipness
   ```

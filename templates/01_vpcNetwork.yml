@@ -37,9 +37,9 @@ Parameters:
   ServiceName:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    Default: play-store
+    Default: rare-light
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
-    Description: Enter service name, like 「play-store」
+    Description: Enter service name, like 「rare-light」
 
   # NATGatewayに紐付けるElasticIPの割り当てID。未指定だとEIPから作る
   NatIPAllocationId:

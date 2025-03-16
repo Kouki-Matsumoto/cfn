@@ -32,9 +32,9 @@ Parameters:
   ServiceName:
     Type: String
     AllowedPattern: ^[a-z0-9-]*$
-    Default: pvs
+    Default: rare-light
     ConstraintDescription: Malformed input-Parameter ServiceName must match pattern [a-z0-9-]+
-    Description: Enter service name, like 「pvs」
+    Description: Enter service name, like 「rare-light」
 
   #システム名
   SystemName:

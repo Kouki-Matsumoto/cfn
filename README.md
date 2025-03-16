@@ -1,4 +1,4 @@
-# play-video-stores-cloudformation
+# cloudformation-template
 
 ## VPC
 
